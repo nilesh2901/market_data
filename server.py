@@ -18,6 +18,53 @@ def index():
     # Flask looks for this file in a folder named 'templates'
     return render_template('dashboard.html')
 
+# ---------------------------------------------------------
+# NEW: Route to fetch Real-Time ETF Prices
+# ---------------------------------------------------------
+@app.route('/api/etf-prices')
+def get_etf_prices():
+    try:
+        ticker_str = request.args.get('tickers', '')
+        if not ticker_str:
+            return jsonify({})
+
+        raw_tickers = [t.strip().upper() for t in ticker_str.split(',') if t.strip()]
+        search_tickers = []
+        
+        # List of common US ETFs to bypass the .TO suffix
+        us_tickers = ['VOO', 'IVV', 'QQQ', 'SPY', 'VTI', 'DIA', 'SCHD']
+
+        for t in raw_tickers:
+            clean = t.replace('.', '-') # Yahoo uses hyphens (e.g., CGL-C)
+            
+            if clean in us_tickers:
+                search_name = clean # Use US ticker as-is
+            elif '-' not in clean and '.TO' not in clean:
+                search_name = f"{clean}.TO" # Default to TSX for CAD ETFs
+            else:
+                # Ensure it ends with .TO if it has a hyphen/dot but no exchange suffix
+                search_name = clean if ('.TO' in clean or '-' in clean) else f"{clean}.TO"
+            
+            search_tickers.append(search_name)
+        
+        data = yf.download(search_tickers, period="1d", interval="1m", progress=False)
+        
+        results = {}
+        for i, original in enumerate(raw_tickers):
+            search_name = search_tickers[i]
+            try:
+                if len(search_tickers) > 1:
+                    val = data['Close'][search_name].dropna().iloc[-1]
+                else:
+                    val = data['Close'].dropna().iloc[-1]
+                results[original] = round(float(val), 2)
+            except:
+                results[original] = 0.0 # Returns 0.0 to trigger red UI alert
+                
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 def get_mult(score, ma50_dist, rsi):
     if ma50_dist > 5.5 and rsi > 68: return 0.0
     if score >= 80: return 4.0

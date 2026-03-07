@@ -109,14 +109,43 @@
             const [isNavigating, setIsNavigating] = useState(false);
             const dateTracker = useRef("");
 
+            // --- PORTFOLIO TABLE STATE & LOGIC ---
+            const [isSyncing, setIsSyncing] = useState(false);
+            const defaultTargets = [
+                { ticker: 'VFV', price: 162.82, percent: 54 },
+                { ticker: 'HXQ', price: 96.17, percent: 20 },
+                { ticker: 'XEQT', price: 40.24, percent: 26 }
+            ];
+            const [targets, setTargets] = useState(defaultTargets);
+
+            const addRow = () => setTargets([...targets, { ticker: 'NEW', price: 0, percent: 0 }]);
+            const deleteRow = (idx) => setTargets(targets.filter((_, i) => i !== idx));
+            const resetToDefault = () => setTargets(defaultTargets);
+            
+            const syncIntradayPrices = () => {
+                setIsSyncing(true);
+                const tickerList = targets.map(t => t.ticker).join(',');
+                
+                fetch(`/api/etf-prices?tickers=${tickerList}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const updatedTargets = targets.map(t => ({
+                            ...t,
+                            price: data[t.ticker] || t.price // Updates with live price or keeps old one if error
+                        }));
+                        setTargets(updatedTargets);
+                        setIsSyncing(false);
+                    })
+                    .catch(err => {
+                        console.error("Sync failed:", err);
+                        setIsSyncing(false);
+                    });
+            };
+
             const fetchData = (dateStr = "", targetBudget = budget) => {
                 setLoading(true);
-                
-                // FIXED URL LOGIC FOR RENDER/PRODUCTION
                 let url = `/api/market-data?budget=${targetBudget}`;
-                if (dateStr) {
-                    url += `&date=${dateStr}`;
-                }
+                if (dateStr) url += `&date=${dateStr}`;
 
                 fetch(url)
                     .then(res => {
@@ -171,12 +200,12 @@
 
             const indicators = [
                 { label: 'VIX (Fear)', val: market.vix || '0', range: 'Panic: >30', s: (market.vix || 0) > 25 ? 'PANIC' : 'CALM' },
-                { label: 'RSI (Momentum)', val: market.rsi || '0', range: 'Hot: >70', s: (market.rsi || 0) > 65 ? 'HOT' : 'CHILL' },
+                { label: 'RSI (Momentum)', val: (market.rsi || 0).toFixed(1), range: 'Hot: >70', s: (market.rsi || 0) > 65 ? 'HOT' : 'CHILL' },
                 { label: '50MA Extension', val: (market.ma50Dist || 0) + '%', range: 'Danger: >5.5%', s: (market.ma50Dist || 0) > 5.5 ? 'RISK' : 'SAFE' },
                 { label: 'Current DD', val: (market.drawdown || 0) + '%', range: 'Bear: <-20%', s: (market.drawdown || 0) < -5 ? 'DIP' : 'FLAT' },
-                { label: 'Yield Curve', val: (market.yieldcurve || 0) + '%', range: 'Bull: >0', s: (market.yieldcurve || 0) > 0 ? 'OK' : 'INVERT' },
+                { label: 'Yield Curve', val: (market.yieldcurve || 0).toFixed(2) + '%', range: 'Bull: >0', s: (market.yieldcurve || 0) > 0 ? 'OK' : 'INVERT' },
                 { label: 'Breadth (50D)', val: (market.breadth || 0) + '%', range: 'Strong: >70%', s: (market.breadth || 0) > 50 ? 'OK' : 'WEAK' },
-                { label: '200MA Dist', val: (market.ma200 || 0) + '%', range: 'Trend Health', s: (market.ma200 || 0) > 0 ? 'UP' : 'DOWN' },
+                { label: '200MA Dist', val: (market.ma200 || 0).toFixed(1) + '%', range: 'Trend Health', s: (market.ma200 || 0) > 0 ? 'UP' : 'DOWN' },
                 { 
                   label: 'Momentum (10D)', 
                   val: (market.momentum || 0).toFixed(0), 
@@ -304,6 +333,149 @@
                                 <div className="text-[10px] text-zinc-600 font-bold uppercase italic border-t border-zinc-900 pt-3 mt-1 tracking-wider">{item.range}</div>
                             </div>
                         ))}
+                    </div>
+
+                    <div className="mt-12 glass-panel p-8 border-t-4 border-blue-600">
+                        <div className="flex justify-between items-center mb-8">
+                            <div className="flex items-center gap-4">
+                                <h3 className="text-[10px] text-zinc-500 font-bold uppercase italic tracking-widest underline">Target_Portfolio_Allocation</h3>
+                                
+                                <button 
+                                    onClick={syncIntradayPrices}
+                                    disabled={isSyncing}
+                                    className={`${isSyncing ? 'bg-zinc-800 text-zinc-500 border-zinc-700' : 'bg-green-500/10 hover:bg-green-600 text-green-500 hover:text-white border-green-500/30'} text-[9px] font-black px-3 py-1.5 rounded border uppercase transition-all flex items-center gap-2 active:scale-95`}
+                                >
+                                    <span className={isSyncing ? "animate-spin" : ""}>{isSyncing ? "◌" : "⚡"}</span>
+                                    {isSyncing ? "Fetching..." : "Sync_Market"}
+                                </button>
+
+                                <button 
+                                    onClick={addRow}
+                                    className="bg-zinc-800 hover:bg-blue-600 text-blue-400 hover:text-white text-[9px] font-black px-3 py-1.5 rounded border border-zinc-700 hover:border-blue-500 uppercase transition-all active:scale-95"
+                                >
+                                    + Add_Asset
+                                </button>
+                                
+                                <button 
+                                    onClick={resetToDefault}
+                                    className="text-zinc-600 hover:text-zinc-400 text-[9px] font-black px-2 uppercase transition-all"
+                                >
+                                    ↻ Reset
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-3 bg-blue-500/10 px-3 py-2 rounded border border-blue-500/20">
+                                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Deployable Capital: $</span>
+                                <input 
+                                    type="number" 
+                                    value={market?.weeklyTotal || 0} 
+                                    onChange={(e) => setMarket({...market, weeklyTotal: parseFloat(e.target.value) || 0})}
+                                    className="bg-transparent text-white font-black text-sm outline-none w-24 border-b border-blue-500/30 focus:border-blue-400"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-zinc-800 text-[10px] uppercase text-zinc-500 font-black tracking-tighter">
+                                        <th className="pb-4 pl-2">Ticker_ID</th>
+                                        <th className="pb-4">Intraday_Price</th>
+                                        <th className="pb-4 text-center">Weight_%</th>
+                                        <th className="pb-4 text-center">Allocation_$</th>
+                                        <th className="pb-4 text-center">Shares</th>
+                                        <th className="pb-4 pr-2 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-xs font-bold uppercase tracking-tight">
+                                    {targets.map((asset, idx) => {
+                                        const allocationAmt = (market?.weeklyTotal || 0) * (asset.percent / 100);
+                                        const shares = asset.price > 0 ? (allocationAmt / asset.price).toFixed(3) : "0.000";
+                                        const hasError = asset.price === 0;
+                                        
+                                        return (
+                                            <tr key={idx} className={`border-b border-zinc-900/50 hover:bg-zinc-800/10 transition-colors ${asset.percent === 0 ? 'opacity-40' : ''} ${hasError ? 'bg-red-500/5' : ''}`}>
+                                                <td className="py-4 pl-2">
+                                                    <div className="relative">
+                                                        <input 
+                                                            type="text"
+                                                            value={asset.ticker}
+                                                            onChange={(e) => {
+                                                                const newTargets = [...targets];
+                                                                newTargets[idx].ticker = e.target.value.toUpperCase();
+                                                                setTargets(newTargets);
+                                                            }}
+                                                            className={`bg-zinc-900 font-black text-lg w-28 px-2 py-1 rounded border outline-none ${hasError ? 'border-red-500 text-red-500' : 'border-zinc-800 text-blue-400 focus:border-blue-500'}`}
+                                                        />
+                                                        {hasError && (
+                                                            <span className="absolute -top-6 left-0 text-[8px] text-red-500 font-bold uppercase tracking-tighter animate-pulse">! Invalid_Ticker</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="py-4">
+                                                    <div className={`flex items-center gap-1 font-mono italic ${hasError ? 'text-red-900' : 'text-zinc-400'}`}>
+                                                        <span>$</span>
+                                                        <input 
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={asset.price}
+                                                            onChange={(e) => {
+                                                                const newTargets = [...targets];
+                                                                newTargets[idx].price = parseFloat(e.target.value) || 0;
+                                                                setTargets(newTargets);
+                                                            }}
+                                                            className="bg-transparent w-20 outline-none border-b border-zinc-800 focus:border-zinc-500 text-white"
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 text-center">
+                                                    <input 
+                                                        type="number"
+                                                        value={asset.percent}
+                                                        onChange={(e) => {
+                                                            const newTargets = [...targets];
+                                                            newTargets[idx].percent = parseFloat(e.target.value) || 0;
+                                                            setTargets(newTargets);
+                                                        }}
+                                                        className="bg-zinc-900 text-green-500 w-16 p-2 rounded border border-zinc-800 focus:border-green-500 outline-none text-center font-black"
+                                                    />
+                                                </td>
+                                                <td className="py-4 text-center text-white font-mono">
+                                                    ${allocationAmt.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                </td>
+                                                <td className="py-4 text-center">
+                                                    <span className="text-blue-500 font-mono text-base px-3 py-1 bg-blue-500/5 rounded border border-blue-500/10">
+                                                        {shares}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 pr-2 text-right">
+                                                    <button onClick={() => deleteRow(idx)} className="text-zinc-800 hover:text-red-600 transition-colors px-2">✕</button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* SYSTEM VALIDATOR */}
+                        {(() => {
+                            const totalAllocated = targets.reduce((sum, a) => sum + a.percent, 0);
+                            const isValid = Math.abs(totalAllocated - 100) < 0.01;
+                            return (
+                                <div className={`mt-8 p-4 rounded-lg border flex justify-between items-center transition-all ${isValid ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/10 border-red-500/40 animate-pulse'}`}>
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-2 h-2 rounded-full ${isValid ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500'}`}></div>
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isValid ? 'text-green-500' : 'text-red-500'}`}>
+                                            {isValid ? 'Allocation_Balanced' : `Logic_Error: ${totalAllocated.toFixed(1)}% / 100%`}
+                                        </span>
+                                    </div>
+                                    <div className="text-[10px] font-bold text-zinc-600 uppercase">
+                                        {isValid ? 'Ready for trade execution' : `Variance: ${(100 - totalAllocated).toFixed(1)}%`}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
             );
