@@ -111,13 +111,18 @@
 
             const fetchData = (dateStr = "", targetBudget = budget) => {
                 setLoading(true);
-                const url = new URL('/api/market-data');
-                // const url = new URL('http://127.0.0.1:5000/api/market-data');
-                if (dateStr) url.searchParams.append('date', dateStr);
-                url.searchParams.append('budget', targetBudget);
+                
+                // FIXED URL LOGIC FOR RENDER/PRODUCTION
+                let url = `/api/market-data?budget=${targetBudget}`;
+                if (dateStr) {
+                    url += `&date=${dateStr}`;
+                }
 
                 fetch(url)
-                    .then(res => res.json())
+                    .then(res => {
+                        if (!res.ok) throw new Error(`Server status: ${res.status}`);
+                        return res.json();
+                    })
                     .then(json => { 
                         setMarket(json); 
                         setDisplayDate(json.actualDate);
