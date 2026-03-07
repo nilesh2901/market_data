@@ -111,7 +111,8 @@
 
             const fetchData = (dateStr = "", targetBudget = budget) => {
                 setLoading(true);
-                const url = new URL('http://127.0.0.1:5000/api/market-data');
+                const url = new URL('/api/market-data');
+                // const url = new URL('http://127.0.0.1:5000/api/market-data');
                 if (dateStr) url.searchParams.append('date', dateStr);
                 url.searchParams.append('budget', targetBudget);
 

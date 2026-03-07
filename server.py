@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, jsonify, request, render_template # Added render_template
 from flask_cors import CORS
 import yfinance as yf
@@ -126,4 +128,7 @@ def get_data():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    #app.run(host='127.0.0.1', port=5000, debug=True)
+    # Use the port assigned by Render, or default to 5000 for local testing
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
