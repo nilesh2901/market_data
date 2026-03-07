@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk_Command_Pro | v4.10</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600&display=swap');
+        body { font-family: 'IBM Plex Mono', monospace; background: #050505; color: #e4e4e7; margin: 0; overflow-x: hidden; }
+        .glass-panel { background: rgba(15, 15, 15, 0.8); border: 1px solid #27272a; border-radius: 12px; backdrop-filter: blur(10px); }
+        .stat-card { border-left: 3px solid #3b82f6; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .stat-card:hover { background: rgba(59, 130, 246, 0.05); transform: translateY(-2px); border-left-width: 6px; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+        #chart-tooltip {
+            width: 180px; position: absolute; display: none; padding: 12px;
+            background: rgba(9, 9, 11, 0.95); color: #fff; z-index: 1000;
+            border: 1px solid #3b82f6; border-radius: 8px; pointer-events: none;
+        }
+        .score-glow-green { text-shadow: 0 0 30px rgba(74, 222, 128, 0.4); }
+        .score-glow-orange { text-shadow: 0 0 30px rgba(249, 115, 22, 0.4); }
+        .score-glow-red { text-shadow: 0 0 40px rgba(239, 68, 68, 0.8); }
+        .nav-btn { background: #18181b; border: 1px solid #27272a; transition: all 0.2s; cursor: pointer; }
+        .nav-btn:hover:not(:disabled) { background: #27272a; border-color: #3b82f6; color: #3b82f6; }
+        .nav-btn:active:not(:disabled) { transform: scale(0.95); }
+        .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .override-pulse { animation: pulse-red 2s infinite; }
+        @keyframes pulse-red {
+            0% { background: rgba(153, 27, 27, 0.2); border-color: #ef4444; }
+            50% { background: rgba(153, 27, 27, 0.5); border-color: #f87171; }
+            100% { background: rgba(153, 27, 27, 0.2); border-color: #ef4444; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const PriceChart = ({ data }) => {
+            const chartContainerRef = useRef();
+            const tooltipRef = useRef();
+            const chartRef = useRef();
+
+            useEffect(() => {
+                if (!data || data.length === 0 || !chartContainerRef.current) return;
+                if (chartRef.current) chartRef.current.remove();
+
+                chartRef.current = LightweightCharts.createChart(chartContainerRef.current, {
+                    layout: { background: { color: 'transparent' }, textColor: '#71717a' },
+                    grid: { vertLines: { color: '#18181b' }, horzLines: { color: '#18181b' } },
+                    width: chartContainerRef.current.offsetWidth,
+                    height: 400,
+                    timeScale: { borderColor: '#27272a' },
+                    rightPriceScale: { borderColor: '#27272a', autoScale: true },
+                });
+
+                const lineSeries = chartRef.current.addAreaSeries({ 
+                    lineColor: '#3b82f6', topColor: 'rgba(59, 130, 246, 0.2)', bottomColor: 'transparent', lineWidth: 3 
+                });
+
+                lineSeries.setData(data);
+                chartRef.current.timeScale().fitContent();
+
+                chartRef.current.subscribeCrosshairMove(param => {
+                    const tooltip = tooltipRef.current;
+                    if (!param.time || param.point.x < 0 || param.point.x > chartContainerRef.current.clientWidth) {
+                        tooltip.style.display = 'none';
+                    } else {
+                        tooltip.style.display = 'block';
+                        const price = param.seriesPrices.get(lineSeries);
+                        tooltip.innerHTML = `<div class="text-[10px] text-zinc-500 uppercase mb-1">Index Level</div><div class="text-xl font-bold text-blue-400">$${price ? price.toLocaleString(undefined, {minimumFractionDigits: 2}) : 'N/A'}</div><div class="text-[9px] text-zinc-500 mt-1 uppercase">${param.time}</div>`;
+                        tooltip.style.left = (param.point.x + 20) + 'px';
+                        tooltip.style.top = (param.point.y + 20) + 'px';
+                    }
+                });
+
+                const handleResize = () => {
+                    if (chartRef.current && chartContainerRef.current) {
+                        chartRef.current.applyOptions({ width: chartContainerRef.current.offsetWidth });
+                    }
+                };
+
+                window.addEventListener('resize', handleResize);
+                return () => { 
+                    window.removeEventListener('resize', handleResize); 
+                    if (chartRef.current) chartRef.current.remove(); 
+                };
+            }, [data]);
+
+            return (
+                <div className="relative w-full overflow-hidden">
+                    <div id="chart-tooltip" ref={tooltipRef}></div>
+                    <div ref={chartContainerRef} className="w-full" />
+                </div>
+            );
+        };
+
+        function App() {
+            const [market, setMarket] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [displayDate, setDisplayDate] = useState("");
+            const [budget, setBudget] = useState(1000);
+            const [isNavigating, setIsNavigating] = useState(false);
+            const dateTracker = useRef("");
+
+            const fetchData = (dateStr = "", targetBudget = budget) => {
+                setLoading(true);
+                const url = new URL('http://127.0.0.1:5000/api/market-data');
+                if (dateStr) url.searchParams.append('date', dateStr);
+                url.searchParams.append('budget', targetBudget);
+
+                fetch(url)
+                    .then(res => res.json())
+                    .then(json => { 
+                        setMarket(json); 
+                        setDisplayDate(json.actualDate);
+                        dateTracker.current = json.actualDate;
+                        setLoading(false); 
+                        setIsNavigating(false);
+                    })
+                    .catch(err => { 
+                        console.error("Fetch Error:", err); 
+                        setLoading(false); 
+                        setIsNavigating(false);
+                    });
+            };
+
+            const navigateDay = (offset) => {
+                if (!dateTracker.current || isNavigating) return;
+                setIsNavigating(true);
+                const parts = dateTracker.current.split('-');
+                const currentDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                currentDate.setDate(currentDate.getDate() + offset);
+                const newDateStr = currentDate.toISOString().split('T')[0];
+                fetchData(newDateStr);
+            };
+
+            useEffect(() => fetchData(), []);
+
+            if (loading && !market) {
+                return <div className="h-screen flex items-center justify-center bg-black text-blue-500 font-bold animate-pulse tracking-widest uppercase italic">Initializing_Tactical_v4.10...</div>;
+            }
+
+            if (!market) return <div className="h-screen flex items-center justify-center bg-black text-red-500 font-bold tracking-widest uppercase italic border-2 border-red-500">API_CONNECTION_ERROR</div>;
+
+            const displayPrice = market.currentPrice || (market.chartData?.length > 0 ? market.chartData[market.chartData.length - 1].value : 0);
+            const isOverride = (market.ma50Dist || 0) > 5.5 && (market.rsi || 0) > 68;
+            
+            const getTacticalProfile = () => {
+                if (isOverride) return { label: "OVERHEATED / TRIM", mult: 0.0, color: "text-red-500", glow: "score-glow-red", border: "border-red-600", desc: "BLOW-OFF RISK: Market is vertical. Sentiment is ecstatic. Moving to cash or hedges. Zero new buys." };
+                if (market.riskScore >= 80) return { label: "PANIC SELL / MAX BUY", mult: 4.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", desc: "TERMINAL CAPITULATION: Extreme fear detected. This is a historical accumulation window. Quadruple standard daily allocation." };
+                if (market.riskScore >= 65 || (market.drawdown || 0) < -4.5) return { label: "MARKET FEAR / ACCEL", mult: 2.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", desc: "SCARE THE WEAK HANDS: Structural dip in progress. Sentiment is breaking. Double your standard allocation." };
+                if (market.riskScore <= 35) return { label: "FIZZING OUT / HOLD", mult: 0.5, color: "text-orange-500", glow: "score-glow-orange", border: "border-orange-500", desc: "MOMENTUM DECAY: Local peak risk. Buying here is chasing the dragon. Halve allocation and wait for a reset." };
+                return { label: "STEADY TAPE / DCA", mult: 1.0, color: "text-blue-400", glow: "", border: "border-blue-600", desc: "EQUILIBRIUM: No extreme panic or greed. Market tracking healthily. Maintain standard recurring allocation." };
+            };
+
+            const tactical = getTacticalProfile();
+            const baseDaily = budget / 5;
+
+            const indicators = [
+                { label: 'VIX (Fear)', val: market.vix || '0', range: 'Panic: >30', s: (market.vix || 0) > 25 ? 'PANIC' : 'CALM' },
+                { label: 'RSI (Momentum)', val: market.rsi || '0', range: 'Hot: >70', s: (market.rsi || 0) > 65 ? 'HOT' : 'CHILL' },
+                { label: '50MA Extension', val: (market.ma50Dist || 0) + '%', range: 'Danger: >5.5%', s: (market.ma50Dist || 0) > 5.5 ? 'RISK' : 'SAFE' },
+                { label: 'Current DD', val: (market.drawdown || 0) + '%', range: 'Bear: <-20%', s: (market.drawdown || 0) < -5 ? 'DIP' : 'FLAT' },
+                { label: 'Yield Curve', val: (market.yieldcurve || 0) + '%', range: 'Bull: >0', s: (market.yieldcurve || 0) > 0 ? 'OK' : 'INVERT' },
+                { label: 'Breadth (50D)', val: (market.breadth || 0) + '%', range: 'Strong: >70%', s: (market.breadth || 0) > 50 ? 'OK' : 'WEAK' },
+                { label: '200MA Dist', val: (market.ma200 || 0) + '%', range: 'Trend Health', s: (market.ma200 || 0) > 0 ? 'UP' : 'DOWN' },
+                { 
+                  label: 'Momentum (10D)', 
+                  val: (market.momentum || 0).toFixed(0), 
+                  range: 'Trend Strength', 
+                  s: (market.momentum || 0) > 0 ? 'POS' : 'NEG',
+                  trend: (market.momentum || 0) >= 0 ? 'up' : 'down'
+                }
+            ];
+
+            return (
+                <div className="max-w-7xl mx-auto p-12">
+                    <header className="mb-12 flex flex-col md:flex-row justify-between items-start border-b border-zinc-900 pb-10 gap-6">
+                        <div>
+                            <h1 className="text-5xl font-bold tracking-tighter uppercase italic text-white leading-none">Risk_Command_v4.10</h1>
+                            <div className="flex items-center gap-4 mt-6">
+                                <div className="text-zinc-500 font-bold text-xl uppercase tracking-widest leading-none">
+                                    <span className="w-2 h-2 bg-blue-500 rounded-full inline-block mr-2 animate-pulse"></span>
+                                    {displayDate || "0000-00-00"}
+                                </div>
+                                <div className="h-4 w-px bg-zinc-800"></div>
+                                <div className="text-zinc-300 font-bold text-xl uppercase tracking-widest leading-none">
+                                    S&P 500: <span className="text-blue-400 font-black">${displayPrice?.toLocaleString(undefined, {minimumFractionDigits: 2}) || "0.00"}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end gap-3">
+                            <div className="flex items-center gap-2 bg-zinc-900 p-2 rounded-lg border border-zinc-800">
+                                <span className="text-[10px] px-3 font-bold text-zinc-500 uppercase tracking-widest">Weekly_Budget:</span>
+                                <input type="number" value={budget} onChange={(e) => { setBudget(e.target.value); fetchData(displayDate, e.target.value); }} className="bg-zinc-800 text-white font-bold p-2 w-28 rounded text-xs outline-none border border-zinc-700 focus:border-blue-500 transition-colors" />
+                                <div className="h-4 w-px bg-zinc-700 mx-1"></div>
+                                <button disabled={isNavigating} onClick={() => navigateDay(-1)} className="nav-btn px-4 py-2 rounded text-[10px] font-black uppercase text-zinc-400">← Prev</button>
+                                <button onClick={() => fetchData()} className="text-[10px] px-3 font-bold text-zinc-500 uppercase hover:text-white transition-colors">Reset</button>
+                                <button disabled={isNavigating} onClick={() => navigateDay(1)} className="nav-btn px-4 py-2 rounded text-[10px] font-black uppercase text-zinc-400">Next →</button>
+                            </div>
+                            <div className="bg-zinc-900 p-2 rounded-lg border border-zinc-800 flex items-center">
+                                <span className="text-[10px] px-3 font-bold text-zinc-500 uppercase tracking-widest">Jump_To:</span>
+                                <input type="date" value={displayDate || ""} onChange={(e) => fetchData(e.target.value)} className="bg-zinc-800 text-white font-bold p-2 rounded text-xs uppercase cursor-pointer" />
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                        <div className="lg:col-span-2 glass-panel p-8 border-l-4 border-blue-500">
+                            <h3 className="text-[10px] text-zinc-500 font-bold uppercase mb-6 italic tracking-widest underline">Deployment_Log_Weekly</h3>
+                            <div className="grid grid-cols-5 gap-4">
+                                {(market?.weeklyAllocations || []).map((log, i) => (
+                                    <div key={i} className="bg-zinc-900/40 p-4 rounded border border-zinc-800 text-center">
+                                        <div className="text-[9px] text-zinc-500 font-bold uppercase mb-2">{log.day}</div>
+                                        <div className="text-xl font-bold text-white">${(log.multiplier * baseDaily).toFixed(0)}</div>
+                                        <div className="text-[8px] text-blue-500 font-bold mt-1">{log.multiplier}x</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="glass-panel p-8 flex flex-col items-center justify-center bg-blue-500/5 border-l-4 border-blue-400 text-center">
+                            <h3 className="text-[10px] text-blue-400 font-bold uppercase mb-2 tracking-widest">Friday_DCA_Total</h3>
+                            <div className="text-6xl font-black text-white leading-none">${market?.weeklyTotal?.toLocaleString() || "0"}</div>
+                            <div className="text-[10px] text-zinc-500 mt-4 uppercase italic tracking-tighter">Aggregated Buy Order</div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-12">
+                        <div className={`glass-panel p-10 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center ${isOverride ? 'override-pulse' : ''}`}>
+                            <h3 className="text-[10px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Fear_Index</h3>
+                            <div className={`text-8xl font-bold tracking-tighter ${tactical.glow} ${tactical.color}`}>{market?.riskScore || 0}</div>
+                        </div>
+                        <div className={`glass-panel p-10 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center`}>
+                            <h3 className="text-[10px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Day_Multiplier</h3>
+                            <div className={`text-7xl font-bold tracking-tighter ${tactical.color}`}>{tactical.mult}x</div>
+                        </div>
+                        <div className={`lg:col-span-2 glass-panel p-10 border-l-4 ${tactical.border} flex flex-col justify-center`}>
+                            <h2 className={`text-4xl font-bold uppercase mb-4 italic tracking-tight ${tactical.color}`}>{tactical.label}</h2>
+                            <p className="text-zinc-400 text-lg italic leading-relaxed max-w-2xl">{tactical.desc}</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+                        <div className="lg:col-span-2 glass-panel p-8 relative overflow-hidden">
+                            {loading && <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center font-bold text-xs uppercase tracking-widest italic">Syncing_Tape_Protocol...</div>}
+                            <h3 className="text-[10px] uppercase font-bold text-zinc-500 mb-6 italic underline tracking-widest">Market_Trajectory_180D</h3>
+                            <PriceChart data={market?.chartData || []} />
+                        </div> 
+                        <div className="glass-panel p-8 flex flex-col justify-between border-l-4 border-zinc-700">
+                            <div>
+                                <h3 className="text-[10px] text-zinc-500 font-bold uppercase mb-6 underline italic tracking-widest">Weighting_Logic</h3>
+                                <table className="w-full text-xs uppercase text-left">
+                                    <tbody className="text-zinc-400">
+                                        <tr className="border-b border-zinc-900"><td className="py-4 font-bold text-zinc-300">VIX Panic</td><td className="text-right">{market?.vixPoints || 0} / 30</td></tr>
+                                        <tr className="border-b border-zinc-900"><td className="py-4 font-bold text-zinc-300">RSI Heat</td><td className="text-right">{market?.rsiPoints || 0} / 25</td></tr>
+                                        <tr className="border-b border-zinc-900"><td className="py-4 font-bold text-zinc-300">Macro Health</td><td className="text-right">{market?.macroPoints || 0} / 30</td></tr>
+                                        <tr className="border-b border-zinc-900"><td className="py-4 font-bold text-zinc-300">Breadth</td><td className="text-right">{market?.breadthPoints || 0} / 15</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="mt-6 pt-6 border-t border-zinc-900 flex flex-col gap-6">
+                                <div className="bg-zinc-900/50 p-4 rounded border border-zinc-800">
+                                    <div className="text-[10px] text-zinc-500 font-bold uppercase mb-1 tracking-widest">Terminal_Drawdown</div>
+                                    <div className="text-5xl font-bold text-red-500 tracking-tighter leading-tight">{market?.maxDrawdown || 0}%</div>
+                                    <div className="text-[11px] text-zinc-400 font-bold mt-2 uppercase italic tracking-wider leading-none">
+                                        Observed: <span className="text-zinc-200">{market?.mddDate || "N/A"}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {indicators.map((item, i) => (
+                            <div key={i} className="glass-panel p-8 stat-card">
+                                <div className="flex justify-between items-start mb-4">
+                                    <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{item.label}</h4>
+                                    <span className="text-[9px] bg-zinc-900 px-2 py-1 rounded text-blue-500 font-bold border border-zinc-800 uppercase leading-none">{item.s}</span>
+                                </div>
+                                <div className="flex items-center gap-3 text-5xl font-bold tracking-tighter text-white mb-2">
+                                    {item.val}
+                                    {item.trend && (
+                                        item.trend === 'up' ? (
+                                            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                                        ) : (
+                                            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                                        )
+                                    )}
+                                </div>
+                                <div className="text-[10px] text-zinc-600 font-bold uppercase italic border-t border-zinc-900 pt-3 mt-1 tracking-wider">{item.range}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
