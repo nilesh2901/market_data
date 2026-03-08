@@ -102,16 +102,19 @@ def get_data():
         else:
             idx_pos = len(close_prices) - 1
 
+        # Calculate MAs for the entire series
+        ma50_all = close_prices.rolling(window=50).mean()
+        ma200_all = close_prices.rolling(window=200).mean()
+
         def compute_daily_stats(pos):
             h_slice = close_prices.iloc[:pos+1]
             c_price = close_prices.iloc[pos]
             v_val = vix_prices.iloc[min(pos, len(vix_prices)-1)]
             d_rsi = calculate_rsi(h_slice).iloc[-1]
-            d_ma50 = h_slice.rolling(window=50).mean().iloc[-1]
+            d_ma50 = ma50_all.iloc[pos]
             d_ma50_dist = ((c_price - d_ma50) / d_ma50) * 100
-            d_ma200 = h_slice.rolling(window=200).mean().iloc[-1]
+            d_ma200 = ma200_all.iloc[pos]
             d_ma200_dist = ((c_price - d_ma200) / d_ma200) * 100
-            
             d_y10 = ten_year.iloc[min(pos, len(ten_year)-1)]
             d_y3m = three_month.iloc[min(pos, len(three_month)-1)]
             d_yield = (d_y10 - d_y3m) / 10
@@ -127,8 +130,6 @@ def get_data():
             return score, d_ma50_dist, d_rsi, v_val, m200_pts, y_pts, b_pts, v_pts, r_pts, d_ma200_dist
 
         res = compute_daily_stats(idx_pos)
-        risk_score, ma50_dist, rsi, vix_val, m200_pts, yield_pts, breadth_pts, vix_pts, rsi_pts, raw_ma200_dist = res
-
         curr_dt = close_prices.index[idx_pos]
         start_of_week = curr_dt - timedelta(days=curr_dt.weekday())
         
@@ -148,30 +149,40 @@ def get_data():
         
         weekly_total = sum(item['multiplier'] * base_daily for item in weekly_allocs)
 
+        # Build chart data with MA values
+        chart_slice_start = max(0, idx_pos-180)
+        chart_data = []
+        for i in range(chart_slice_start, idx_pos + 1):
+            chart_data.append({
+                "time": close_prices.index[i].strftime('%Y-%m-%d'),
+                "value": float(close_prices.iloc[i]),
+                "ma50": float(ma50_all.iloc[i]) if not pd.isna(ma50_all.iloc[i]) else None,
+                "ma200": float(ma200_all.iloc[i]) if not pd.isna(ma200_all.iloc[i]) else None
+            })
+
         return jsonify({
-            "rsi": round(float(rsi), 2),
-            "vix": round(float(vix_val), 2),
-            "ma200": round(float(raw_ma200_dist), 2),
-            "ma50Dist": round(float(ma50_dist), 2),
+            "rsi": round(float(res[2]), 2),
+            "vix": round(float(res[3]), 2),
+            "ma200": round(float(res[9]), 2),
+            "ma50Dist": round(float(res[1]), 2),
             "momentum": round(float(close_prices.iloc[:idx_pos+1].diff(10).iloc[-1]), 2),
-            "yieldcurve": round(float(yield_pts/7.5 - 1), 2),
-            "breadth": round(float(breadth_pts*4 + 20), 1),
-            "riskScore": risk_score,
+            "yieldcurve": round(float(res[5]/7.5 - 1), 2),
+            "breadth": round(float(res[6]*4 + 20), 1),
+            "riskScore": res[0],
             "drawdown": round(float(((close_prices.iloc[idx_pos] - close_prices.iloc[:idx_pos+1].max()) / close_prices.iloc[:idx_pos+1].max()) * 100), 2),
             "maxDrawdown": round(float(((close_prices - close_prices.cummax())/close_prices.cummax()).min() * 100), 2),
             "mddDate": close_prices.index[((close_prices - close_prices.cummax())/close_prices.cummax()).argmin()].strftime('%Y-%m-%d'),
-            "chartData": [{"time": d.strftime('%Y-%m-%d'), "value": float(v)} for d, v in close_prices.iloc[max(0, idx_pos-180):idx_pos+1].items()],
+            "chartData": chart_data,
             "actualDate": curr_dt.strftime('%Y-%m-%d'),
             "currentPrice": float(close_prices.iloc[idx_pos]),
-            "vixPoints": round(float(vix_pts), 1),
-            "rsiPoints": round(float(rsi_pts), 1),
-            "macroPoints": round(float(m200_pts + yield_pts), 1),
-            "breadthPoints": round(float(breadth_pts), 1),
+            "vixPoints": round(float(res[7]), 1),
+            "rsiPoints": round(float(res[8]), 1),
+            "macroPoints": round(float(res[4] + res[5]), 1),
+            "breadthPoints": round(float(res[6]), 1),
             "weeklyAllocations": weekly_allocs,
             "weeklyTotal": float(weekly_total)
         })
     except Exception as e:
-        print(f"Server Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
