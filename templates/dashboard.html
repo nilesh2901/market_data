@@ -42,7 +42,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-const PriceChart = ({ data }) => {
+        const PriceChart = ({ data }) => {
             const chartContainerRef = useRef();
             const tooltipRef = useRef();
             const chartRef = useRef();
@@ -60,12 +60,10 @@ const PriceChart = ({ data }) => {
                     rightPriceScale: { borderColor: '#27272a', autoScale: true },
                 });
 
-                // MAIN PRICE SERIES
                 const lineSeries = chartRef.current.addAreaSeries({ 
                     lineColor: '#3b82f6', topColor: 'rgba(59, 130, 246, 0.2)', bottomColor: 'transparent', lineWidth: 3 
                 });
 
-                // DEFINE MOVING AVERAGE SERIES BEFORE SETTING DATA
                 const ma50Series = chartRef.current.addLineSeries({ 
                     color: '#fbbf24', lineWidth: 2, title: '50MA', priceLineVisible: false 
                 });
@@ -74,7 +72,6 @@ const PriceChart = ({ data }) => {
                     color: '#ef4444', lineWidth: 2, lineStyle: 2, title: '200MA', priceLineVisible: false 
                 });
 
-                // SET DATA FOR ALL SERIES
                 lineSeries.setData(data.map(d => ({ time: d.time, value: d.value })));
                 ma50Series.setData(data.filter(d => d.ma50).map(d => ({ time: d.time, value: d.ma50 })));
                 ma200Series.setData(data.filter(d => d.ma200).map(d => ({ time: d.time, value: d.ma200 })));
@@ -133,7 +130,6 @@ const PriceChart = ({ data }) => {
             const [isNavigating, setIsNavigating] = useState(false);
             const dateTracker = useRef("");
 
-            // --- PORTFOLIO TABLE STATE & LOGIC ---
             const [isSyncing, setIsSyncing] = useState(false);
             const defaultTargets = [
                 { ticker: 'VFV', price: 162.82, percent: 54 },
@@ -149,13 +145,12 @@ const PriceChart = ({ data }) => {
             const syncIntradayPrices = () => {
                 setIsSyncing(true);
                 const tickerList = targets.map(t => t.ticker).join(',');
-                
                 fetch(`/api/etf-prices?tickers=${tickerList}`)
                     .then(res => res.json())
                     .then(data => {
                         const updatedTargets = targets.map(t => ({
                             ...t,
-                            price: data[t.ticker] || t.price // Updates with live price or keeps old one if error
+                            price: data[t.ticker] || t.price 
                         }));
                         setTargets(updatedTargets);
                         setIsSyncing(false);
@@ -209,18 +204,47 @@ const PriceChart = ({ data }) => {
             if (!market) return <div className="h-screen flex items-center justify-center bg-black text-red-500 font-bold tracking-widest uppercase italic border-2 border-red-500">API_CONNECTION_ERROR</div>;
 
             const displayPrice = market.currentPrice || (market.chartData?.length > 0 ? market.chartData[market.chartData.length - 1].value : 0);
-            const isOverride = (market.ma50Dist || 0) > 5.5 && (market.rsi || 0) > 68;
             
             const getTacticalProfile = () => {
-                if (isOverride) return { label: "OVERHEATED / TRIM", mult: 0.0, color: "text-red-500", glow: "score-glow-red", border: "border-red-600", desc: "BLOW-OFF RISK: Market is vertical. Sentiment is ecstatic. Moving to cash or hedges. Zero new buys." };
-                if (market.riskScore >= 80) return { label: "PANIC SELL / MAX BUY", mult: 4.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", desc: "TERMINAL CAPITULATION: Extreme fear detected. This is a historical accumulation window. Quadruple standard daily allocation." };
-                if (market.riskScore >= 65 || (market.drawdown || 0) < -4.5) return { label: "MARKET FEAR / ACCEL", mult: 2.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", desc: "SCARE THE WEAK HANDS: Structural dip in progress. Sentiment is breaking. Double your standard allocation." };
-                if (market.riskScore <= 35) return { label: "FIZZING OUT / HOLD", mult: 0.5, color: "text-orange-500", glow: "score-glow-orange", border: "border-orange-500", desc: "MOMENTUM DECAY: Local peak risk. Buying here is chasing the dragon. Halve allocation and wait for a reset." };
-                return { label: "STEADY TAPE / DCA", mult: 1.0, color: "text-blue-400", glow: "", border: "border-blue-600", desc: "EQUILIBRIUM: No extreme panic or greed. Market tracking healthily. Maintain standard recurring allocation." };
+                const isOverride = market.ma50Dist > 4.2 && market.rsi > 62;
+                const score = market.riskScore;
+                const dd = market.drawdown;
+
+                if (isOverride) return { 
+                    label: "OVERHEATED / TRIM", mult: 0.0, color: "text-red-500", glow: "score-glow-red", border: "border-red-600", 
+                    desc: "BLOW-OFF RISK: Market is vertical. Sentiment is ecstatic. Moving to cash or hedges. Zero new buys.",
+                    guidance: "PRO TIP: High prices and high excitement are a dangerous mix. Don't FOMO; wait for the market to come back to you." 
+                };
+                if (score >= 75 || dd <= -4.5) return { 
+                    label: "TERMINAL / MAX BUY", mult: 4.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", 
+                    desc: "TERMINAL CAPITULATION: Extreme fear detected. This is a historical accumulation window.",
+                    guidance: "PRO TIP: This is where long-term wealth is built. It feels scary to buy when others are selling, but that's the secret." 
+                };
+                if (score >= 65 || dd <= -3.5) return { 
+                    label: "AGGRESSIVE BUY", mult: 3.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-400", 
+                    desc: "HEALTHY CORRECTION: Tripling standard allocation to capitalize on lower prices.",
+                    guidance: "PRO TIP: Think of this as a 'Flash Sale.' You're getting more shares for every dollar compared to last week." 
+                };
+                if (score >= 55 || dd <= -2.0) return { 
+                    label: "MARKET FEAR / ACCEL", mult: 2.0, color: "text-blue-400", glow: "", border: "border-blue-500", 
+                    desc: "STRUCTURAL DIP: Sentiment is breaking. Double your standard allocation.",
+                    guidance: "PRO TIP: Volatility is normal. Use these small dips to accelerate your journey toward your goals." 
+                };
+                if (score <= 35) return { 
+                    label: "FIZZING OUT / HOLD", mult: 0.5, color: "text-orange-500", glow: "score-glow-orange", border: "border-orange-500", 
+                    desc: "MOMENTUM DECAY: Buying here is chasing the dragon. Halve allocation.",
+                    guidance: "PRO TIP: Patience is a superpower. Better to hold some cash now than buy at the very top of a rally." 
+                };
+                return { 
+                    label: "STEADY TAPE / DCA", mult: 1.0, color: "text-blue-400", glow: "", border: "border-blue-600", 
+                    desc: "EQUILIBRIUM: Market tracking healthily. Maintain standard recurring allocation.",
+                    guidance: "PRO TIP: Consistency is king. Your regular contributions are the most important part of your strategy right now." 
+                };
             };
 
             const tactical = getTacticalProfile();
             const baseDaily = budget / 5;
+            const isOverrideMode = market.ma50Dist > 4.2 && market.rsi > 62;
 
             const indicators = [
                 { label: 'VIX (Fear)', val: market.vix || '0', range: 'Panic: >30', s: (market.vix || 0) > 25 ? 'PANIC' : 'CALM' },
@@ -247,11 +271,11 @@ const PriceChart = ({ data }) => {
                             <div className="flex items-center gap-4 mt-6">
                                 <div className="text-zinc-500 font-bold text-xl uppercase tracking-widest leading-none">
                                     <span className="w-2 h-2 bg-blue-500 rounded-full inline-block mr-2 animate-pulse"></span>
-                                    {displayDate || "0000-00-00"}
+                                    {displayDate}
                                 </div>
                                 <div className="h-4 w-px bg-zinc-800"></div>
                                 <div className="text-zinc-300 font-bold text-xl uppercase tracking-widest leading-none">
-                                    S&P 500: <span className="text-blue-400 font-black">${displayPrice?.toLocaleString(undefined, {minimumFractionDigits: 2}) || "0.00"}</span>
+                                    S&P 500: <span className="text-blue-400 font-black">${displayPrice?.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                                 </div>
                             </div>
                         </div>
@@ -259,10 +283,10 @@ const PriceChart = ({ data }) => {
                         <div className="flex flex-col items-end gap-3">
                             <div className="flex items-center gap-2 bg-zinc-900 p-2 rounded-lg border border-zinc-800">
                                 <span className="text-[10px] px-3 font-bold text-zinc-500 uppercase tracking-widest">Weekly_Budget:</span>
-                                <input type="number" value={budget} onChange={(e) => { setBudget(e.target.value); fetchData(displayDate, e.target.value); }} className="bg-zinc-800 text-white font-bold p-2 w-28 rounded text-xs outline-none border border-zinc-700 focus:border-blue-500 transition-colors" />
+                                <input type="number" value={budget} onChange={(e) => { setBudget(e.target.value); fetchData(displayDate, e.target.value); }} className="bg-zinc-800 text-white font-bold p-2 w-28 rounded text-xs outline-none border border-zinc-700 focus:border-blue-500" />
                                 <div className="h-4 w-px bg-zinc-700 mx-1"></div>
                                 <button disabled={isNavigating} onClick={() => navigateDay(-1)} className="nav-btn px-4 py-2 rounded text-[10px] font-black uppercase text-zinc-400">← Prev</button>
-                                <button onClick={() => fetchData()} className="text-[10px] px-3 font-bold text-zinc-500 uppercase hover:text-white transition-colors">Reset</button>
+                                <button onClick={() => fetchData()} className="text-[10px] px-3 font-bold text-zinc-500 uppercase hover:text-white">Reset</button>
                                 <button disabled={isNavigating} onClick={() => navigateDay(1)} className="nav-btn px-4 py-2 rounded text-[10px] font-black uppercase text-zinc-400">Next →</button>
                             </div>
                             <div className="bg-zinc-900 p-2 rounded-lg border border-zinc-800 flex items-center">
@@ -288,12 +312,11 @@ const PriceChart = ({ data }) => {
                         <div className="glass-panel p-8 flex flex-col items-center justify-center bg-blue-500/5 border-l-4 border-blue-400 text-center">
                             <h3 className="text-[10px] text-blue-400 font-bold uppercase mb-2 tracking-widest">Friday_DCA_Total</h3>
                             <div className="text-6xl font-black text-white leading-none">${market?.weeklyTotal?.toLocaleString() || "0"}</div>
-                            <div className="text-[10px] text-zinc-500 mt-4 uppercase italic tracking-tighter">Aggregated Buy Order</div>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-12">
-                        <div className={`glass-panel p-10 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center ${isOverride ? 'override-pulse' : ''}`}>
+                        <div className={`glass-panel p-10 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center ${isOverrideMode ? 'override-pulse' : ''}`}>
                             <h3 className="text-[10px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Fear_Index</h3>
                             <div className={`text-8xl font-bold tracking-tighter ${tactical.glow} ${tactical.color}`}>{market?.riskScore || 0}</div>
                         </div>
@@ -303,13 +326,12 @@ const PriceChart = ({ data }) => {
                         </div>
                         <div className={`lg:col-span-2 glass-panel p-10 border-l-4 ${tactical.border} flex flex-col justify-center`}>
                             <h2 className={`text-4xl font-bold uppercase mb-4 italic tracking-tight ${tactical.color}`}>{tactical.label}</h2>
-                            <p className="text-zinc-400 text-lg italic leading-relaxed max-w-2xl">{tactical.desc}</p>
+                            <p className="text-zinc-400 text-lg italic leading-relaxed">{tactical.desc}</p>
                         </div>
-                    </div>
+                    </div>                                        
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
                         <div className="lg:col-span-2 glass-panel p-8 relative overflow-hidden">
-                            {loading && <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center font-bold text-xs uppercase tracking-widest italic">Syncing_Tape_Protocol...</div>}
                             <h3 className="text-[10px] uppercase font-bold text-zinc-500 mb-6 italic underline tracking-widest">Market_Trajectory_180D</h3>
                             <PriceChart data={market?.chartData || []} />
                         </div> 
@@ -363,39 +385,16 @@ const PriceChart = ({ data }) => {
                         <div className="flex justify-between items-center mb-8">
                             <div className="flex items-center gap-4">
                                 <h3 className="text-[10px] text-zinc-500 font-bold uppercase italic tracking-widest underline">Target_Portfolio_Allocation</h3>
-                                
-                                <button 
-                                    onClick={syncIntradayPrices}
-                                    disabled={isSyncing}
-                                    className={`${isSyncing ? 'bg-zinc-800 text-zinc-500 border-zinc-700' : 'bg-green-500/10 hover:bg-green-600 text-green-500 hover:text-white border-green-500/30'} text-[9px] font-black px-3 py-1.5 rounded border uppercase transition-all flex items-center gap-2 active:scale-95`}
-                                >
+                                <button onClick={syncIntradayPrices} disabled={isSyncing} className={`${isSyncing ? 'bg-zinc-800 text-zinc-500 border-zinc-700' : 'bg-green-500/10 hover:bg-green-600 text-green-500 hover:text-white border-green-500/30'} text-[9px] font-black px-3 py-1.5 rounded border uppercase transition-all flex items-center gap-2 active:scale-95`}>
                                     <span className={isSyncing ? "animate-spin" : ""}>{isSyncing ? "◌" : "⚡"}</span>
                                     {isSyncing ? "Fetching..." : "Sync_Market"}
                                 </button>
-
-                                <button 
-                                    onClick={addRow}
-                                    className="bg-zinc-800 hover:bg-blue-600 text-blue-400 hover:text-white text-[9px] font-black px-3 py-1.5 rounded border border-zinc-700 hover:border-blue-500 uppercase transition-all active:scale-95"
-                                >
-                                    + Add_Asset
-                                </button>
-                                
-                                <button 
-                                    onClick={resetToDefault}
-                                    className="text-zinc-600 hover:text-zinc-400 text-[9px] font-black px-2 uppercase transition-all"
-                                >
-                                    ↻ Reset
-                                </button>
+                                <button onClick={addRow} className="bg-zinc-800 hover:bg-blue-600 text-blue-400 hover:text-white text-[9px] font-black px-3 py-1.5 rounded border border-zinc-700 hover:border-blue-500 uppercase transition-all active:scale-95"> + Add_Asset </button>
+                                <button onClick={resetToDefault} className="text-zinc-600 hover:text-zinc-400 text-[9px] font-black px-2 uppercase transition-all"> ↻ Reset </button>
                             </div>
-
                             <div className="flex items-center gap-3 bg-blue-500/10 px-3 py-2 rounded border border-blue-500/20">
                                 <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Deployable Capital: $</span>
-                                <input 
-                                    type="number" 
-                                    value={market?.weeklyTotal || 0} 
-                                    onChange={(e) => setMarket({...market, weeklyTotal: parseFloat(e.target.value) || 0})}
-                                    className="bg-transparent text-white font-black text-sm outline-none w-24 border-b border-blue-500/30 focus:border-blue-400"
-                                />
+                                <input type="number" value={market?.weeklyTotal || 0} onChange={(e) => setMarket({...market, weeklyTotal: parseFloat(e.target.value) || 0})} className="bg-transparent text-white font-black text-sm outline-none w-24 border-b border-blue-500/30 focus:border-blue-400" />
                             </div>
                         </div>
                         
@@ -416,65 +415,32 @@ const PriceChart = ({ data }) => {
                                         const allocationAmt = (market?.weeklyTotal || 0) * (asset.percent / 100);
                                         const shares = asset.price > 0 ? (allocationAmt / asset.price).toFixed(3) : "0.000";
                                         const hasError = asset.price === 0;
-                                        
                                         return (
                                             <tr key={idx} className={`border-b border-zinc-900/50 hover:bg-zinc-800/10 transition-colors ${asset.percent === 0 ? 'opacity-40' : ''} ${hasError ? 'bg-red-500/5' : ''}`}>
                                                 <td className="py-4 pl-2">
                                                     <div className="relative">
-                                                        <input 
-                                                            type="text"
-                                                            value={asset.ticker}
-                                                            onChange={(e) => {
-                                                                const newTargets = [...targets];
-                                                                newTargets[idx].ticker = e.target.value.toUpperCase();
-                                                                setTargets(newTargets);
-                                                            }}
-                                                            className={`bg-zinc-900 font-black text-lg w-28 px-2 py-1 rounded border outline-none ${hasError ? 'border-red-500 text-red-500' : 'border-zinc-800 text-blue-400 focus:border-blue-500'}`}
-                                                        />
-                                                        {hasError && (
-                                                            <span className="absolute -top-6 left-0 text-[8px] text-red-500 font-bold uppercase tracking-tighter animate-pulse">! Invalid_Ticker</span>
-                                                        )}
+                                                        <input type="text" value={asset.ticker} onChange={(e) => {
+                                                            const n = [...targets]; n[idx].ticker = e.target.value.toUpperCase(); setTargets(n);
+                                                        }} className={`bg-zinc-900 font-black text-lg w-28 px-2 py-1 rounded border outline-none ${hasError ? 'border-red-500 text-red-500' : 'border-zinc-800 text-blue-400 focus:border-blue-500'}`} />
+                                                        {hasError && <span className="absolute -top-6 left-0 text-[8px] text-red-500 font-bold uppercase tracking-tighter animate-pulse">! Invalid_Ticker</span>}
                                                     </div>
                                                 </td>
                                                 <td className="py-4">
                                                     <div className={`flex items-center gap-1 font-mono italic ${hasError ? 'text-red-900' : 'text-zinc-400'}`}>
                                                         <span>$</span>
-                                                        <input 
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={asset.price}
-                                                            onChange={(e) => {
-                                                                const newTargets = [...targets];
-                                                                newTargets[idx].price = parseFloat(e.target.value) || 0;
-                                                                setTargets(newTargets);
-                                                            }}
-                                                            className="bg-transparent w-20 outline-none border-b border-zinc-800 focus:border-zinc-500 text-white"
-                                                        />
+                                                        <input type="number" step="0.01" value={asset.price} onChange={(e) => {
+                                                            const n = [...targets]; n[idx].price = parseFloat(e.target.value) || 0; setTargets(n);
+                                                        }} className="bg-transparent w-20 outline-none border-b border-zinc-800 focus:border-zinc-500 text-white" />
                                                     </div>
                                                 </td>
                                                 <td className="py-4 text-center">
-                                                    <input 
-                                                        type="number"
-                                                        value={asset.percent}
-                                                        onChange={(e) => {
-                                                            const newTargets = [...targets];
-                                                            newTargets[idx].percent = parseFloat(e.target.value) || 0;
-                                                            setTargets(newTargets);
-                                                        }}
-                                                        className="bg-zinc-900 text-green-500 w-16 p-2 rounded border border-zinc-800 focus:border-green-500 outline-none text-center font-black"
-                                                    />
+                                                    <input type="number" value={asset.percent} onChange={(e) => {
+                                                        const n = [...targets]; n[idx].percent = parseFloat(e.target.value) || 0; setTargets(n);
+                                                    }} className="bg-zinc-900 text-green-500 w-16 p-2 rounded border border-zinc-800 focus:border-green-500 outline-none text-center font-black" />
                                                 </td>
-                                                <td className="py-4 text-center text-white font-mono">
-                                                    ${allocationAmt.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                                                </td>
-                                                <td className="py-4 text-center">
-                                                    <span className="text-blue-500 font-mono text-base px-3 py-1 bg-blue-500/5 rounded border border-blue-500/10">
-                                                        {shares}
-                                                    </span>
-                                                </td>
-                                                <td className="py-4 pr-2 text-right">
-                                                    <button onClick={() => deleteRow(idx)} className="text-zinc-800 hover:text-red-600 transition-colors px-2">✕</button>
-                                                </td>
+                                                <td className="py-4 text-center text-white font-mono">${allocationAmt.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                                <td className="py-4 text-center"> <span className="text-blue-500 font-mono text-base px-3 py-1 bg-blue-500/5 rounded border border-blue-500/10"> {shares} </span> </td>
+                                                <td className="py-4 pr-2 text-right"> <button onClick={() => deleteRow(idx)} className="text-zinc-800 hover:text-red-600 transition-colors px-2">✕</button> </td>
                                             </tr>
                                         );
                                     })}
@@ -482,7 +448,6 @@ const PriceChart = ({ data }) => {
                             </table>
                         </div>
 
-                        {/* SYSTEM VALIDATOR */}
                         {(() => {
                             const totalAllocated = targets.reduce((sum, a) => sum + a.percent, 0);
                             const isValid = Math.abs(totalAllocated - 100) < 0.01;
