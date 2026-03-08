@@ -42,7 +42,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const PriceChart = ({ data }) => {
+const PriceChart = ({ data }) => {
             const chartContainerRef = useRef();
             const tooltipRef = useRef();
             const chartRef = useRef();
@@ -60,11 +60,25 @@
                     rightPriceScale: { borderColor: '#27272a', autoScale: true },
                 });
 
+                // MAIN PRICE SERIES
                 const lineSeries = chartRef.current.addAreaSeries({ 
                     lineColor: '#3b82f6', topColor: 'rgba(59, 130, 246, 0.2)', bottomColor: 'transparent', lineWidth: 3 
                 });
 
-                lineSeries.setData(data);
+                // DEFINE MOVING AVERAGE SERIES BEFORE SETTING DATA
+                const ma50Series = chartRef.current.addLineSeries({ 
+                    color: '#fbbf24', lineWidth: 2, title: '50MA', priceLineVisible: false 
+                });
+
+                const ma200Series = chartRef.current.addLineSeries({ 
+                    color: '#ef4444', lineWidth: 2, lineStyle: 2, title: '200MA', priceLineVisible: false 
+                });
+
+                // SET DATA FOR ALL SERIES
+                lineSeries.setData(data.map(d => ({ time: d.time, value: d.value })));
+                ma50Series.setData(data.filter(d => d.ma50).map(d => ({ time: d.time, value: d.ma50 })));
+                ma200Series.setData(data.filter(d => d.ma200).map(d => ({ time: d.time, value: d.ma200 })));
+                
                 chartRef.current.timeScale().fitContent();
 
                 chartRef.current.subscribeCrosshairMove(param => {
@@ -74,7 +88,17 @@
                     } else {
                         tooltip.style.display = 'block';
                         const price = param.seriesPrices.get(lineSeries);
-                        tooltip.innerHTML = `<div class="text-[10px] text-zinc-500 uppercase mb-1">Index Level</div><div class="text-xl font-bold text-blue-400">$${price ? price.toLocaleString(undefined, {minimumFractionDigits: 2}) : 'N/A'}</div><div class="text-[9px] text-zinc-500 mt-1 uppercase">${param.time}</div>`;
+                        const m50 = param.seriesPrices.get(ma50Series);
+                        const m200 = param.seriesPrices.get(ma200Series);
+                        
+                        tooltip.innerHTML = `
+                            <div class="text-[10px] text-zinc-500 uppercase mb-1 font-bold">Analysis</div>
+                            <div class="text-xl font-black text-blue-400 mb-2">$${price ? price.toLocaleString(undefined, {minimumFractionDigits: 2}) : 'N/A'}</div>
+                            <div class="flex flex-col gap-1 border-t border-zinc-800 pt-2 text-[10px]">
+                                <div class="flex justify-between font-mono"><span class="text-amber-400">50MA:</span><span>$${m50 ? m50.toFixed(2) : '—'}</span></div>
+                                <div class="flex justify-between font-mono"><span class="text-red-500">200MA:</span><span>$${m200 ? m200.toFixed(2) : '—'}</span></div>
+                            </div>
+                        `;
                         tooltip.style.left = (param.point.x + 20) + 'px';
                         tooltip.style.top = (param.point.y + 20) + 'px';
                     }
