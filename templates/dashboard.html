@@ -208,23 +208,21 @@
             const getTacticalProfile = () => {
                 const isOverride = market.ma50Dist > 4.2 && market.rsi > 62;
                 const score = market.opportunityScore;
-                const dd = Math.abs(market.drawdown);
-                const ma50Dist = market.ma50Dist;
                 const rsi = market.rsi;
                 const vol = market.volSignal;
 
-                // 1. TOP TIER: EXTREME PANIC (Generational Opportunity)
-                if (vol === "EXTREME_CLIMAX" || score >= 80) return { 
-                    label: "GENERATIONAL BOTTOM", mult: 4.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-400", 
-                    desc: "ULTRA PANIC: Volume is 2.5x normal and RSI is crashed. Historically, this is the 'Fat Pitch'.",
-                    guidance: "Maximum conviction. Deploy all available capital." 
-                };
-                // 2. OVERRIDE: OVERHEATED                
+                // 1. OVERRIDE: OVERHEATED                
                 if (isOverride || vol === "EXHAUSTION") return {
                     label: "FOMO / EXHAUSTION", mult: 0.0, color: "text-red-500", glow: "score-glow-red", border: "border-red-600", 
                     desc: "BUYING EXHAUSTION: Market is vertical. on high volume. The 'dumb money' is piling in. Moving to cash or hedges. Zero new buys.",
                     guidance: "Stop all buying. High prices and high excitement are a dangerous mix. Don't FOMO; wait for the market to come back to you." 
                 };                
+                // 2. TOP TIER: EXTREME PANIC (Generational Opportunity)
+                if (vol === "EXTREME_CLIMAX" || score >= 80) return { 
+                    label: "GENERATIONAL BOTTOM", mult: 4.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-400", 
+                    desc: "ULTRA PANIC: Volume is 2.5x normal and RSI is crashed. Historically, this is the 'Fat Pitch'.",
+                    guidance: "Maximum conviction. Deploy all available capital." 
+                };
                 // 3. MID-HIGH: PANIC SELL / CLIMAX
                 if (vol === "CLIMAX" || score >= 65) return { 
                     label: "PANIC SELL / CLIMAX", mult: 3.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", 
@@ -232,7 +230,7 @@
                     guidance: "Maximize deployment. Triple down. Historical reversal zone." 
                 };                
                 // 4. MOMENTUM SPIKE
-                if (rsi >= 55) return { 
+                if (score >= 55) return { 
                     label: "MARKET FEAR", mult: 2.0, color: "text-orange-400", glow: "", border: "border-orange-500", 
                     desc: "STRUCTURAL DIP: Sentiment is breaking. Double your standard allocation.",
                     guidance: "Slow down. Don't chase the spike." 
