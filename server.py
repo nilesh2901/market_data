@@ -94,25 +94,48 @@ def get_data():
             c_price = float(close_prices.iloc[pos])
             v_val = float(vix_prices.iloc[min(pos, len(vix_prices)-1)])
             d_rsi = float(calculate_rsi(h_slice).iloc[-1])
+            
+            # MA Distances
             d_ma50 = float(ma50_all.iloc[pos])
             d_ma50_dist = ((c_price - d_ma50) / d_ma50) * 100
             d_ma200 = float(ma200_all.iloc[pos])
             d_ma200_dist = ((c_price - d_ma200) / d_ma200) * 100
+            
+            # Yield & Breadth
             d_y10 = float(ten_year.iloc[min(pos, len(ten_year)-1)])
             d_y3m = float(three_month.iloc[min(pos, len(three_month)-1)])
             d_yield = (d_y10 - d_y3m) 
-            
             tail_data = h_slice.tail(51)
             d_breadth = ((tail_data.diff() > 0).sum() / 50) * 100 if len(tail_data) > 1 else 0
             
-            v_pts = max(0, min(30, (v_val - 15) * 1.5))
-            r_pts = max(0, min(25, (70 - d_rsi) * 0.625))
-            m200_pts = max(0, min(15, (5 - d_ma200_dist) * 1.5))
-            y_pts = max(0, min(15, (d_yield + 1) * 7.5))
-            b_pts = max(0, min(15, (d_breadth - 20) * 0.25))
+            # Drawdown Calculation (New Input for Score)
+            rolling_max = close_prices.iloc[:pos+1].max()
+            d_drawdown = ((c_price - rolling_max) / rolling_max) * 100
+
+            # --- REBALANCED 100-POINT SYSTEM ---
+            # 1. VIX Points (Reduced from 30 to 20)
+            v_pts = max(0, min(20, (v_val - 15) * 1.0))
             
-            opportunity_score = round(float(v_pts + r_pts + m200_pts + y_pts + b_pts), 1)
-            return opportunity_score, d_ma50_dist, d_rsi, v_val, m200_pts, y_pts, b_pts, v_pts, r_pts, d_ma200_dist
+            # 2. RSI Points (Kept at 25)
+            r_pts = max(0, min(25, (70 - d_rsi) * 0.625))
+            
+            # 3. Drawdown Points (New: 15 Points)
+            # Rewards 1.5 pts for every 1% of drawdown, maxing at 10% drop
+            dd_pts = max(0, min(15, abs(d_drawdown) * 1.5))
+            
+            # 4. Macro Points (Kept at 15)
+            y_pts = max(0, min(15, (d_yield + 1) * 7.5))
+            
+            # 5. 200MA Points (Kept at 15)
+            m200_pts = max(0, min(15, (5 - d_ma200_dist) * 1.5))
+            
+            # 6. Breadth Points (Reduced from 15 to 10)
+            b_pts = max(0, min(10, (d_breadth - 20) * 0.20))
+            
+            opportunity_score = round(float(v_pts + r_pts + dd_pts + y_pts + m200_pts + b_pts), 1)
+            
+            # Return updated tuple including dd_pts
+            return opportunity_score, d_ma50_dist, d_rsi, v_val, m200_pts, y_pts, b_pts, v_pts, r_pts, d_ma200_dist, dd_pts
 
         res = compute_daily_stats(idx_pos)
         selected_multiplier = float(get_mult(res[0], res[1], res[2])) 
@@ -158,6 +181,7 @@ def get_data():
             "rsiPoints": round(float(res[8]), 1),
             "macroPoints": round(float(res[4] + res[5]), 1),
             "breadthPoints": round(float(res[6]), 1),
+            "drawdownPoints": round(float(res[10]), 1),
             "weeklyAllocations": weekly_allocs,
             "weeklyTotal": float(weekly_total)
         })

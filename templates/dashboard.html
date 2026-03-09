@@ -343,11 +343,27 @@
                                 <h3 className="text-[10px] text-zinc-500 font-bold uppercase mb-6 underline italic tracking-widest">Weighting_Logic</h3>
                                 <table className="w-full text-xs uppercase text-left">
                                     <tbody className="text-zinc-400">
-                                        <tr className="border-b border-zinc-900"><td className="py-4 font-bold text-zinc-300">VIX Panic</td><td className="text-right">{market?.vixPoints || 0} / 30</td></tr>
-                                        <tr className="border-b border-zinc-900"><td className="py-4 font-bold text-zinc-300">RSI Heat</td><td className="text-right">{market?.rsiPoints || 0} / 25</td></tr>
-                                        <tr className="border-b border-zinc-900"><td className="py-4 font-bold text-zinc-300">Macro Health</td><td className="text-right">{market?.macroPoints || 0} / 30</td></tr>
-                                        <tr className="border-b border-zinc-900"><td className="py-4 font-bold text-zinc-300">Breadth</td><td className="text-right">{market?.breadthPoints || 0} / 15</td></tr>
-                                    </tbody>
+                                        <tr className="border-b border-zinc-900">
+                                            <td className="py-4 font-bold text-zinc-300">VIX Panic</td>
+                                            <td className="text-right">{market?.vixPoints || 0} / 20</td>
+                                        </tr>
+                                        <tr className="border-b border-zinc-900">
+                                            <td className="py-4 font-bold text-zinc-300">RSI Heat</td>
+                                            <td className="text-right">{market?.rsiPoints || 0} / 25</td>
+                                        </tr>
+                                        <tr className="border-b border-zinc-900">
+                                            <td className="py-4 font-bold text-zinc-300 text-red-400">Drawdown</td>
+                                            <td className="text-right text-red-400">{market?.drawdownPoints || 0} / 15</td>
+                                        </tr>
+                                        <tr className="border-b border-zinc-900">
+                                            <td className="py-4 font-bold text-zinc-300">Macro Health</td>
+                                            <td className="text-right">{market?.macroPoints || 0} / 30</td>
+                                        </tr>
+                                        <tr className="border-b border-zinc-900">
+                                            <td className="py-4 font-bold text-zinc-300">Breadth</td>
+                                            <td className="text-right">{market?.breadthPoints || 0} / 10</td>
+                                        </tr>
+                                    </tbody>                                    
                                 </table>
                             </div>
                             <div className="mt-6 pt-6 border-t border-zinc-900 flex flex-col gap-6">
