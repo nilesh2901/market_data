@@ -218,17 +218,17 @@
                     guidance: "PRO TIP: High prices and high excitement are a dangerous mix. Don't FOMO; wait for the market to come back to you." 
                 };                
                 
-                if (score >= 75 || dd <= -4.5) return { 
+                if (score >= 75) return { 
                     label: "TERMINAL / MAX BUY", mult: 4.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", 
                     desc: "TERMINAL CAPITULATION: Extreme fear detected. This is a historical accumulation window.",
                     guidance: "PRO TIP: This is where long-term wealth is built. It feels scary to buy when others are selling, but that's the secret." 
                 };
-                if (score >= 65 || dd <= -3.5) return { 
+                if (score >= 65) return { 
                     label: "AGGRESSIVE BUY", mult: 3.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-400", 
                     desc: "HEALTHY CORRECTION: Tripling standard allocation to capitalize on lower prices.",
                     guidance: "PRO TIP: Think of this as a 'Flash Sale.' You're getting more shares for every dollar compared to last week." 
                 };
-                if (score >= 55 || dd <= -2.0) return { 
+                if (score >= 55) return { 
                     label: "MARKET FEAR / ACCEL", mult: 2.0, color: "text-blue-400", glow: "", border: "border-blue-500", 
                     desc: "STRUCTURAL DIP: Sentiment is breaking. Double your standard allocation.",
                     guidance: "PRO TIP: Volatility is normal. Use these small dips to accelerate your journey toward your goals." 
