@@ -207,14 +207,17 @@
             
             const getTacticalProfile = () => {
                 const isOverride = market.ma50Dist > 4.2 && market.rsi > 62;
-                const score = market.riskScore;
-                const dd = market.drawdown;
+                const score = market.opportunityScore;
+                const dd = Math.abs(market.drawdown);
+                const ma50Dist = market.ma50Dist;
+                const rsi = market.rsi;
 
                 if (isOverride) return { 
                     label: "OVERHEATED / TRIM", mult: 0.0, color: "text-red-500", glow: "score-glow-red", border: "border-red-600", 
                     desc: "BLOW-OFF RISK: Market is vertical. Sentiment is ecstatic. Moving to cash or hedges. Zero new buys.",
                     guidance: "PRO TIP: High prices and high excitement are a dangerous mix. Don't FOMO; wait for the market to come back to you." 
-                };
+                };                
+                
                 if (score >= 75 || dd <= -4.5) return { 
                     label: "TERMINAL / MAX BUY", mult: 4.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", 
                     desc: "TERMINAL CAPITULATION: Extreme fear detected. This is a historical accumulation window.",
