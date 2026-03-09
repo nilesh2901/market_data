@@ -73,7 +73,7 @@ def get_data():
         base_daily = budget / 5 
 
         tickers = ["^GSPC", "^VIX", "^TNX", "^IRX"]
-        raw_data = yf.download(tickers, period="5y", interval="1d", auto_adjust=True, group_by='column')
+        raw_data = yf.download(tickers, period="5y", interval="1d", auto_adjust=True, group_by='column', progress=False)
         
         close_prices = raw_data['Close']['^GSPC'].dropna().tz_localize(None)
         vix_prices = raw_data['Close']['^VIX'].dropna().tz_localize(None)
@@ -171,7 +171,7 @@ def get_data():
             "ma50Dist": round(float(res[1]), 2),
             "momentum": round(float(close_prices.iloc[:idx_pos+1].diff(10).iloc[-1]), 2),
             "yieldcurve": round(float(res[5]/7.5 - 1), 2),
-            "breadth": round(float(res[6]*4 + 20), 1),
+            "breadth": round(float(res[6]*5 + 20), 1),
             "opportunityScore": float(res[0]),
             "drawdown": round(float(((close_prices.iloc[idx_pos] - close_prices.iloc[:idx_pos+1].max()) / close_prices.iloc[:idx_pos+1].max()) * 100), 2),
             "maxDrawdown": round(float(((close_prices - close_prices.cummax())/close_prices.cummax()).min() * 100), 2),
@@ -188,7 +188,7 @@ def get_data():
             "weeklyTotal": float(weekly_total)
         })
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"CRITICAL ERROR in /api/market-data: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
