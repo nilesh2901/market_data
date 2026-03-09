@@ -5,6 +5,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import pytz
 
 app = Flask(__name__)
 CORS(app)
@@ -73,7 +74,7 @@ def get_data():
         base_daily = budget / 5 
 
         tickers = ["^GSPC", "^VIX", "^TNX", "^IRX"]
-        raw_data = yf.download(tickers, period="5y", interval="1d", auto_adjust=True, group_by='column')
+        raw_data = yf.download(tickers, period="5y", interval="1d", auto_adjust=True, group_by='column', progress=False)
         
         close_prices = raw_data['Close']['^GSPC'].dropna().tz_localize(None)
         vix_prices = raw_data['Close']['^VIX'].dropna().tz_localize(None)
@@ -161,7 +162,14 @@ def get_data():
                 "ma50": float(ma50_all.iloc[i]) if not pd.isna(ma50_all.iloc[i]) else None,
                 "ma200": float(ma200_all.iloc[i]) if not pd.isna(ma200_all.iloc[i]) else None
             })
-        server_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        utc_tz = pytz.utc
+        et_tz = pytz.timezone('US/Eastern')
+        now_utc = datetime.now(utc_tz)
+        now_et = now_utc.astimezone(et_tz)
+        server_now_utc = now_utc.strftime('%Y-%m-%d %H:%M:%S')
+        server_now_et = now_et.strftime('%Y-%m-%d %H:%M:%S')
+        server_now = server_now_et
 
         return jsonify({
             "lastUpdated": server_now, 
@@ -171,7 +179,7 @@ def get_data():
             "ma50Dist": round(float(res[1]), 2),
             "momentum": round(float(close_prices.iloc[:idx_pos+1].diff(10).iloc[-1]), 2),
             "yieldcurve": round(float(res[5]/7.5 - 1), 2),
-            "breadth": round(float(res[6]*4 + 20), 1),
+            "breadth": round(float(res[6]*5 + 20), 1),
             "opportunityScore": float(res[0]),
             "drawdown": round(float(((close_prices.iloc[idx_pos] - close_prices.iloc[:idx_pos+1].max()) / close_prices.iloc[:idx_pos+1].max()) * 100), 2),
             "maxDrawdown": round(float(((close_prices - close_prices.cummax())/close_prices.cummax()).min() * 100), 2),
@@ -188,7 +196,7 @@ def get_data():
             "weeklyTotal": float(weekly_total)
         })
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"CRITICAL ERROR in /api/market-data: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
