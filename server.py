@@ -1,13 +1,16 @@
 import os
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
+from flask_caching import Cache
 import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import pytz
 
+cache = Cache(config={'CACHE_TYPE': 'SimpleCache'})
 app = Flask(__name__)
+cache.init_app(app)
 CORS(app)
 
 @app.route('/')
@@ -67,6 +70,7 @@ def calculate_rsi(series, period=14):
     return 100 - (100 / (1 + rs))
 
 @app.route('/api/market-data')
+@cache.cached(timeout=60, query_string=True) # 3. Cache for 1 minutes (60 seconds)
 def get_data():
     try:
         target_date_str = request.args.get('date')
