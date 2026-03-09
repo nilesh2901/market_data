@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Risk_Command_Pro | v4.10</title>
+    <title>Market Data Risk | v4.10</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -207,14 +207,17 @@
             
             const getTacticalProfile = () => {
                 const isOverride = market.ma50Dist > 4.2 && market.rsi > 62;
-                const score = market.riskScore;
-                const dd = market.drawdown;
+                const score = market.opportunityScore;
+                const dd = Math.abs(market.drawdown);
+                const ma50Dist = market.ma50Dist;
+                const rsi = market.rsi;
 
                 if (isOverride) return { 
                     label: "OVERHEATED / TRIM", mult: 0.0, color: "text-red-500", glow: "score-glow-red", border: "border-red-600", 
                     desc: "BLOW-OFF RISK: Market is vertical. Sentiment is ecstatic. Moving to cash or hedges. Zero new buys.",
                     guidance: "PRO TIP: High prices and high excitement are a dangerous mix. Don't FOMO; wait for the market to come back to you." 
-                };
+                };                
+                
                 if (score >= 75 || dd <= -4.5) return { 
                     label: "TERMINAL / MAX BUY", mult: 4.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", 
                     desc: "TERMINAL CAPITULATION: Extreme fear detected. This is a historical accumulation window.",
@@ -267,7 +270,7 @@
                 <div className="max-w-7xl mx-auto p-12">
                     <header className="mb-12 flex flex-col md:flex-row justify-between items-start border-b border-zinc-900 pb-10 gap-6">
                         <div>
-                            <h1 className="text-5xl font-bold tracking-tighter uppercase italic text-white leading-none">Risk_Command_v4.10</h1>
+                            <h1 className="text-5xl font-bold tracking-tighter uppercase italic text-white leading-none">Market Data Risk v4.10</h1>
                             <div className="flex items-center gap-4 mt-6">
                                 <div className="text-zinc-500 font-bold text-xl uppercase tracking-widest leading-none">
                                     <span className="w-2 h-2 bg-blue-500 rounded-full inline-block mr-2 animate-pulse"></span>
