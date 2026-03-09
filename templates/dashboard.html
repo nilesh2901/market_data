@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Market Data Risk | v4.10</title>
+    <title>Market Data Risk</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -198,7 +198,7 @@
             useEffect(() => fetchData(), []);
 
             if (loading && !market) {
-                return <div className="h-screen flex items-center justify-center bg-black text-blue-500 font-bold animate-pulse tracking-widest uppercase italic">Initializing_Tactical_v4.10...</div>;
+                return <div className="h-screen flex items-center justify-center bg-black text-blue-500 font-bold animate-pulse tracking-widest uppercase italic">Initializing...</div>;
             }
 
             if (!market) return <div className="h-screen flex items-center justify-center bg-black text-red-500 font-bold tracking-widest uppercase italic border-2 border-red-500">API_CONNECTION_ERROR</div>;
@@ -211,38 +211,44 @@
                 const dd = Math.abs(market.drawdown);
                 const ma50Dist = market.ma50Dist;
                 const rsi = market.rsi;
+                const vol = market.volSignal;
 
-                if (isOverride) return { 
-                    label: "OVERHEATED / TRIM", mult: 0.0, color: "text-red-500", glow: "score-glow-red", border: "border-red-600", 
-                    desc: "BLOW-OFF RISK: Market is vertical. Sentiment is ecstatic. Moving to cash or hedges. Zero new buys.",
-                    guidance: "PRO TIP: High prices and high excitement are a dangerous mix. Don't FOMO; wait for the market to come back to you." 
+                // 1. TOP TIER: EXTREME PANIC (Generational Opportunity)
+                if (vol === "EXTREME_CLIMAX" || score >= 80) return { 
+                    label: "GENERATIONAL BOTTOM", mult: 4.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-400", 
+                    desc: "ULTRA PANIC: Volume is 2.5x normal and RSI is crashed. Historically, this is the 'Fat Pitch'.",
+                    guidance: "Maximum conviction. Deploy all available capital." 
+                };
+                // 2. OVERRIDE: OVERHEATED                
+                if (isOverride || vol === "EXHAUSTION") return {
+                    label: "FOMO / EXHAUSTION", mult: 0.0, color: "text-red-500", glow: "score-glow-red", border: "border-red-600", 
+                    desc: "BUYING EXHAUSTION: Market is vertical. on high volume. The 'dumb money' is piling in. Moving to cash or hedges. Zero new buys.",
+                    guidance: "Stop all buying. High prices and high excitement are a dangerous mix. Don't FOMO; wait for the market to come back to you." 
                 };                
-                
-                if (score >= 75) return { 
-                    label: "TERMINAL / MAX BUY", mult: 4.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", 
-                    desc: "TERMINAL CAPITULATION: Extreme fear detected. This is a historical accumulation window.",
-                    guidance: "PRO TIP: This is where long-term wealth is built. It feels scary to buy when others are selling, but that's the secret." 
-                };
-                if (score >= 65) return { 
-                    label: "AGGRESSIVE BUY", mult: 3.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-400", 
-                    desc: "HEALTHY CORRECTION: Tripling standard allocation to capitalize on lower prices.",
-                    guidance: "PRO TIP: Think of this as a 'Flash Sale.' You're getting more shares for every dollar compared to last week." 
-                };
-                if (score >= 55) return { 
-                    label: "MARKET FEAR / ACCEL", mult: 2.0, color: "text-blue-400", glow: "", border: "border-blue-500", 
+                // 3. MID-HIGH: PANIC SELL / CLIMAX
+                if (vol === "CLIMAX" || score >= 65) return { 
+                    label: "PANIC SELL / CLIMAX", mult: 3.0, color: "text-green-400", glow: "score-glow-green", border: "border-green-500", 
+                    desc: "CLIMAX DETECTED: High-volume selling usually marks a local bottom. Panic selling is peaking.",
+                    guidance: "Maximize deployment. Triple down. Historical reversal zone." 
+                };                
+                // 4. MOMENTUM SPIKE
+                if (rsi >= 55) return { 
+                    label: "MARKET FEAR", mult: 2.0, color: "text-orange-400", glow: "", border: "border-orange-500", 
                     desc: "STRUCTURAL DIP: Sentiment is breaking. Double your standard allocation.",
-                    guidance: "PRO TIP: Volatility is normal. Use these small dips to accelerate your journey toward your goals." 
-                };
-                if (score <= 35) return { 
+                    guidance: "Slow down. Don't chase the spike." 
+                };                
+                // 5. FIZZING OUT / HOLD
+                if (score <= 35 || vol === "SPIKE" || rsi > 58) return { 
                     label: "FIZZING OUT / HOLD", mult: 0.5, color: "text-orange-500", glow: "score-glow-orange", border: "border-orange-500", 
-                    desc: "MOMENTUM DECAY: Buying here is chasing the dragon. Halve allocation.",
-                    guidance: "PRO TIP: Patience is a superpower. Better to hold some cash now than buy at the very top of a rally." 
-                };
+                    desc: "MOMENTUM DECAY: High RSI or Spike volume. Buying here is chasing. Halving size.",
+                    guidance: "Reduce entry and wait for better value." 
+                };                
+                // 6. DEFAULT: STEADY TAPE
                 return { 
                     label: "STEADY TAPE / DCA", mult: 1.0, color: "text-blue-400", glow: "", border: "border-blue-600", 
-                    desc: "EQUILIBRIUM: Market tracking healthily. Maintain standard recurring allocation.",
-                    guidance: "PRO TIP: Consistency is king. Your regular contributions are the most important part of your strategy right now." 
-                };
+                    desc: "EQUILIBRIUM: Normal volume. Normal trend. Maintain standard recurring allocation.",
+                    guidance: "Continue with standard daily allocation." 
+                };                
             };
 
             const tactical = getTacticalProfile();
@@ -252,6 +258,7 @@
             const indicators = [
                 { label: 'VIX (Fear)', val: market.vix || '0', range: 'Panic: >30', s: (market.vix || 0) > 25 ? 'PANIC' : 'CALM' },
                 { label: 'RSI (Momentum)', val: (market.rsi || 0).toFixed(1), range: 'Hot: >70', s: (market.rsi || 0) > 65 ? 'HOT' : 'CHILL' },
+                { label: 'Volume Spike', val: (market.volumeRatio || 0) + 'x', range: 'Panic: >1.5x', s: market.volSignal || 'NORMAL' },                 
                 { label: '50MA Extension', val: (market.ma50Dist || 0) + '%', range: 'Danger: >5.5%', s: (market.ma50Dist || 0) > 5.5 ? 'RISK' : 'SAFE' },
                 { label: 'Current DD', val: (market.drawdown || 0) + '%', range: 'Bear: <-20%', s: (market.drawdown || 0) < -5 ? 'DIP' : 'FLAT' },
                 { label: 'Yield Curve', val: (market.yieldcurve || 0).toFixed(2) + '%', range: 'Bull: >0', s: (market.yieldcurve || 0) > 0 ? 'OK' : 'INVERT' },
@@ -267,10 +274,10 @@
             ];
 
             return (
-                <div className="max-w-7xl mx-auto p-12">
-                    <header className="mb-12 flex flex-col md:flex-row justify-between items-start border-b border-zinc-900 pb-10 gap-6">
+                <div className="max-w-6xl mx-auto p-6">
+                    <header className="mb-6 flex flex-col md:flex-row justify-between items-start border-b border-zinc-900 pb-10 gap-6">
                         <div>
-                            <h1 className="text-5xl font-bold tracking-tighter uppercase italic text-white leading-none">Market Data Risk v4.10</h1>
+                            <h1 className="text-3xl font-bold tracking-tighter uppercase text-white leading-none">Market Data Risk</h1>
                             <div className="flex items-center gap-4 mt-6">
                                 <div className="text-zinc-500 font-bold text-xl uppercase tracking-widest leading-none">
                                     <span className="w-2 h-2 bg-blue-500 rounded-full inline-block mr-2 animate-pulse"></span>
@@ -318,22 +325,30 @@
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-12">
-                        <div className={`glass-panel p-10 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center ${isOverrideMode ? 'override-pulse' : ''}`}>
-                            <h3 className="text-[10px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Opportunity_Score</h3>
-                            <div className={`text-8xl font-bold tracking-tighter ${tactical.glow} ${tactical.color}`}>{market?.opportunityScore || 0}</div>
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+                        <div className={`glass-panel p-6 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center ${isOverrideMode ? 'override-pulse' : ''}`}>
+                            <h3 className="text-[9px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Opportunity_Score</h3>
+                            <div className={`text-6xl font-bold tracking-tighter ${tactical.glow} ${tactical.color}`}>{market?.opportunityScore || 0}</div>
                         </div>
-                        <div className={`glass-panel p-10 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center`}>
-                            <h3 className="text-[10px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Day_Multiplier</h3>
-                            <div className={`text-7xl font-bold tracking-tighter ${tactical.color}`}>{tactical.mult}x</div>
+                        <div className={`glass-panel p-5 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center`}>
+                            <h3 className="text-[9px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Day_Multiplier</h3>
+                            <div className={`text-5xl font-bold tracking-tighter ${tactical.color}`}>{tactical.mult}x</div>
                         </div>
-                        <div className={`lg:col-span-2 glass-panel p-10 border-l-4 ${tactical.border} flex flex-col justify-center`}>
-                            <h2 className={`text-4xl font-bold uppercase mb-4 italic tracking-tight ${tactical.color}`}>{tactical.label}</h2>
-                            <p className="text-zinc-400 text-lg italic leading-relaxed">{tactical.desc}</p>
+                    {/* Tactical Label - Shrunk from 4xl to 2xl */}
+                        <div className={`lg:col-span-2 glass-panel p-6 border-l-4 ${tactical.border} flex flex-col justify-center`}>
+                            <div className="flex justify-between items-start mb-1">
+                                <h2 className={`text-2xl font-bold uppercase italic tracking-tight ${tactical.color}`}>{tactical.label}</h2>
+                                {market.volSignal !== "NORMAL" && (
+                                    <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white font-black animate-pulse">
+                                        VOL_{market.volSignal}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-zinc-400 text-sm italic leading-snug">{tactical.desc}</p>                        
                         </div>
                     </div>                                        
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                         <div className="lg:col-span-2 glass-panel p-8 relative overflow-hidden">
                             <h3 className="text-[10px] uppercase font-bold text-zinc-500 mb-6 italic underline tracking-widest">Market_Trajectory_180D</h3>
                             <PriceChart data={market?.chartData || []} />
@@ -369,7 +384,7 @@
                             <div className="mt-6 pt-6 border-t border-zinc-900 flex flex-col gap-6">
                                 <div className="bg-zinc-900/50 p-4 rounded border border-zinc-800">
                                     <div className="text-[10px] text-zinc-500 font-bold uppercase mb-1 tracking-widest">Terminal_Drawdown</div>
-                                    <div className="text-5xl font-bold text-red-500 tracking-tighter leading-tight">{market?.maxDrawdown || 0}%</div>
+                                    <div className="text-3xl font-bold text-red-500 tracking-tighter leading-tight">{market?.maxDrawdown || 0}%</div>
                                     <div className="text-[11px] text-zinc-400 font-bold mt-2 uppercase italic tracking-wider leading-none">
                                         Observed: <span className="text-zinc-200">{market?.mddDate || "N/A"}</span>
                                     </div>
@@ -385,7 +400,7 @@
                                     <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{item.label}</h4>
                                     <span className="text-[9px] bg-zinc-900 px-2 py-1 rounded text-blue-500 font-bold border border-zinc-800 uppercase leading-none">{item.s}</span>
                                 </div>
-                                <div className="flex items-center gap-3 text-5xl font-bold tracking-tighter text-white mb-2">
+                                <div className="flex items-center gap-3 text-3xl font-bold tracking-tighter text-white mb-2">
                                     {item.val}
                                     {item.trend && (
                                         item.trend === 'up' ? (

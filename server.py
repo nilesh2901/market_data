@@ -81,6 +81,7 @@ def get_data():
         raw_data = yf.download(tickers, period="5y", interval="1d", auto_adjust=True, group_by='column', progress=False)
         
         close_prices = raw_data['Close']['^GSPC'].dropna().tz_localize(None)
+        volume_data = raw_data['Volume']['^GSPC'].dropna().tz_localize(None)
         vix_prices = raw_data['Close']['^VIX'].dropna().tz_localize(None)
         ten_year = raw_data['Close']['^TNX'].dropna().tz_localize(None)
         three_month = raw_data['Close']['^IRX'].dropna().tz_localize(None)
@@ -100,6 +101,21 @@ def get_data():
             v_val = float(vix_prices.iloc[min(pos, len(vix_prices)-1)])
             d_rsi = float(calculate_rsi(h_slice).iloc[-1])
             
+            # --- NEW VOLUME LOGIC: Calculate Ratio & Signal ---
+            current_vol = float(volume_data.iloc[pos])
+            avg_vol_20 = float(volume_data.iloc[max(0, pos-20):pos+1].mean())
+            vol_ratio = round(current_vol / avg_vol_20, 2) if avg_vol_20 > 0 else 1.0            
+            vol_signal = "NORMAL"
+            # --- ENHANCED VOLUME LOGIC ---
+            if vol_ratio > 2.5 and d_rsi < 30:
+                vol_signal = "EXTREME_CLIMAX"  # "Blood in the streets" / Highest conviction
+            elif vol_ratio > 1.5:
+                if d_rsi < 35: vol_signal = "CLIMAX"     # Standard Panic Sell
+                elif d_rsi > 65: vol_signal = "EXHAUSTION" # Standard Panic Buy/FOMO
+                else: vol_signal = "SPIKE"               # Unusual activity (News event?)
+            elif vol_ratio < 0.6:
+                vol_signal = "DORMANT"         # Apathy / Low interest
+
             # MA Distances
             d_ma50 = float(ma50_all.iloc[pos])
             d_ma50_dist = ((c_price - d_ma50) / d_ma50) * 100
@@ -140,7 +156,7 @@ def get_data():
             opportunity_score = round(float(v_pts + r_pts + dd_pts + y_pts + m200_pts + b_pts), 1)
             
             # Return updated tuple including dd_pts
-            return opportunity_score, d_ma50_dist, d_rsi, v_val, m200_pts, y_pts, b_pts, v_pts, r_pts, d_ma200_dist, dd_pts
+            return opportunity_score, d_ma50_dist, d_rsi, v_val, m200_pts, y_pts, b_pts, v_pts, r_pts, d_ma200_dist, dd_pts, vol_ratio, vol_signal
 
         res = compute_daily_stats(idx_pos)
         selected_multiplier = float(get_mult(res[0], res[1], res[2])) 
@@ -185,6 +201,8 @@ def get_data():
             "yieldcurve": round(float(res[5]/7.5 - 1), 2),
             "breadth": round(float(res[6]*5 + 20), 1),
             "opportunityScore": float(res[0]),
+            "volumeRatio": res[11],
+            "volSignal": res[12],            
             "drawdown": round(float(((close_prices.iloc[idx_pos] - close_prices.iloc[:idx_pos+1].max()) / close_prices.iloc[:idx_pos+1].max()) * 100), 2),
             "maxDrawdown": round(float(((close_prices - close_prices.cummax())/close_prices.cummax()).min() * 100), 2),
             "mddDate": close_prices.index[((close_prices - close_prices.cummax())/close_prices.cummax()).argmin()].strftime('%Y-%m-%d'),
