@@ -161,8 +161,10 @@ def get_data():
                 "ma50": float(ma50_all.iloc[i]) if not pd.isna(ma50_all.iloc[i]) else None,
                 "ma200": float(ma200_all.iloc[i]) if not pd.isna(ma200_all.iloc[i]) else None
             })
+        server_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         return jsonify({
+            "lastUpdated": server_now, 
             "rsi": round(float(res[2]), 2),
             "vix": round(float(res[3]), 2),
             "ma200": round(float(res[9]), 2),
