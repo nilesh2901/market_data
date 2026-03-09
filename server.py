@@ -5,6 +5,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import pytz
 
 app = Flask(__name__)
 CORS(app)
@@ -161,7 +162,14 @@ def get_data():
                 "ma50": float(ma50_all.iloc[i]) if not pd.isna(ma50_all.iloc[i]) else None,
                 "ma200": float(ma200_all.iloc[i]) if not pd.isna(ma200_all.iloc[i]) else None
             })
-        server_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        utc_tz = pytz.utc
+        et_tz = pytz.timezone('US/Eastern')
+        now_utc = datetime.now(utc_tz)
+        now_et = now_utc.astimezone(et_tz)
+        server_now_utc = now_utc.strftime('%Y-%m-%d %H:%M:%S')
+        server_now_et = now_et.strftime('%Y-%m-%d %H:%M:%S')
+        server_now = server_now_et
 
         return jsonify({
             "lastUpdated": server_now, 
