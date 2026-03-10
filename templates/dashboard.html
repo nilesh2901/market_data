@@ -386,47 +386,72 @@
                         </div>
                     </header>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                        <div className="lg:col-span-2 glass-panel p-8 border-l-4 border-blue-500">
-                            <h3 className="text-[10px] text-zinc-500 font-bold uppercase mb-6 italic tracking-widest underline">Deployment_Log_Weekly</h3>
-                            <div className="grid grid-cols-5 gap-4">
-                                {(market?.weeklyAllocations || []).map((log, i) => (
-                                    <div key={i} className="bg-zinc-900/40 p-4 rounded border border-zinc-800 text-center">
-                                        <div className="text-[9px] text-zinc-500 font-bold uppercase mb-2">{log.day}</div>
-                                        <div className="text-xl font-bold text-white">${log.amount}</div>
-                                        <div className="text-[8px] text-blue-500 font-bold mt-1">{log.multiplier}x</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="glass-panel p-8 flex flex-col items-center justify-center bg-blue-500/5 border-l-4 border-blue-400 text-center">
-                            <h3 className="text-[10px] text-blue-400 font-bold uppercase mb-2 tracking-widest">Friday_DCA_Total</h3>
-                            <div className="text-6xl font-black text-white leading-none">${market?.weeklyTotal?.toLocaleString() || "0"}</div>
-                        </div>
-                    </div>
+<div className="glass-panel p-4 border-l-4 border-blue-600 flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
+    {/* Expanded Daily Log Strip */}
+    <div className="flex flex-col flex-1"> {/* Changed flex-grow to flex-1 */}
+        <h3 className="text-[9px] text-zinc-500 font-bold uppercase italic tracking-widest mb-2 underline decoration-blue-500/30">
+            Deployment_Log_Weekly
+        </h3>
+        {/* Changed gap-2 to justify-between to remove the empty space */}
+        <div className="flex justify-between items-center w-full pr-4"> 
+            {(market?.weeklyAllocations || []).map((log, i) => (
+                <div key={i} className="flex flex-col items-center bg-zinc-900/60 px-4 py-1.5 rounded border border-zinc-800 min-w-[75px] transition-hover hover:border-blue-500/50">
+                    <span className="text-[8px] text-zinc-500 font-black uppercase">{log.day}</span>
+                    <span className="text-sm font-bold text-white">${log.amount}</span>
+                    <span className="text-[7px] text-blue-500 font-bold tabular-nums">{log.multiplier}x</span>
+                </div>
+            ))}
+        </div>
+    </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-                        <div className={`glass-panel p-6 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center ${isOverrideMode ? 'override-pulse' : ''}`}>
-                            <h3 className="text-[9px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Opportunity_Score</h3>
-                            <div className={`text-6xl font-bold tracking-tighter ${tactical.glow} ${tactical.color}`}>{market?.opportunityScore || 0}</div>
-                        </div>
-                        <div className={`glass-panel p-5 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center`}>
-                            <h3 className="text-[9px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Day_Multiplier</h3>
-                            <div className={`text-5xl font-bold tracking-tighter ${tactical.color}`}>{tactical.mult}x</div>
-                        </div>
-                    {/* Tactical Label - Shrunk from 4xl to 2xl */}
-                        <div className={`lg:col-span-2 glass-panel p-6 border-l-4 ${tactical.border} flex flex-col justify-center`}>
-                            <div className="flex justify-between items-start mb-1">
-                                <h2 className={`text-2xl font-bold uppercase italic tracking-tight ${tactical.color}`}>{tactical.label}</h2>
-                                {market.volSignal !== "NORMAL" && (
-                                    <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white font-black animate-pulse">
-                                        VOL_{market.volSignal}
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-zinc-400 text-sm italic leading-snug">{tactical.desc}</p>                        
-                        </div>
-                    </div>                                        
+    {/* Integrated Vertical Divider */}
+    <div className="hidden md:block h-12 w-px bg-zinc-800/50"></div>
+
+    {/* Compact Total Section */}
+    <div className="flex flex-col items-center md:items-end justify-center min-w-[150px]">
+        <h3 className="text-[9px] text-blue-400 font-bold uppercase tracking-[0.2em] mb-1">
+            Friday_DCA_Total
+        </h3>
+        <div className="text-4xl font-black text-white leading-none tracking-tighter shadow-blue-500/20 drop-shadow-md">
+            ${market?.weeklyTotal?.toLocaleString() || "0"}
+        </div>
+    </div>
+</div>
+
+<div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+    <div className={`glass-panel p-6 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center ${isOverrideMode ? 'override-pulse' : ''}`}>
+        <h3 className="text-[9px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Opportunity_Score</h3>
+        <div className={`text-6xl font-bold tracking-tighter ${tactical.glow} ${tactical.color}`}>{market?.opportunityScore || 0}</div>
+    </div>
+    
+    <div className={`glass-panel p-5 border-l-4 ${tactical.border} flex flex-col items-center justify-center text-center`}>
+        <h3 className="text-[9px] text-zinc-500 font-bold uppercase mb-2 italic tracking-widest">Day_Multiplier</h3>
+        <div className={`text-5xl font-bold tracking-tighter ${tactical.color}`}>{tactical.mult}x</div>
+    </div>
+
+    {/* Tactical Label with Guidance added */}
+    <div className={`lg:col-span-2 glass-panel p-6 border-l-4 ${tactical.border} flex flex-col justify-center`}>
+        <div className="flex justify-between items-start mb-1">
+            <h2 className={`text-2xl font-bold uppercase italic tracking-tight ${tactical.color}`}>{tactical.label}</h2>
+            {market.volSignal !== "NORMAL" && (
+                <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white font-black animate-pulse">
+                    VOL_{market.volSignal}
+                </span>
+            )}
+        </div>
+        <p className="text-zinc-400 text-sm italic leading-snug mb-3">{tactical.desc}</p>
+
+        {/* GUIDANCE ROW */}
+        <div className="mt-2 pt-2 border-t border-zinc-800/60 flex items-center gap-2">
+            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-white/5 ${tactical.color}`}>
+                Action
+            </span>
+            <p className="text-[10px] font-bold text-zinc-300 uppercase tracking-wide">
+                {tactical.guidance}
+            </p>
+        </div>
+    </div>
+</div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                         <div className="lg:col-span-2 glass-panel p-8 relative overflow-hidden">
