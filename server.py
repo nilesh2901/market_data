@@ -62,12 +62,15 @@ def get_mult(opportunity_score, ma50_dist, rsi):
 
 def calculate_rsi(series, period=14):
     if len(series) < period + 1:
-        return pd.Series([50] * len(series))
+        return pd.Series([None] * len(series)) # Return None to signal data gap
     delta = series.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
+    gain = (delta.where(delta > 0, 0))
+    loss = (-delta.where(delta < 0, 0))
+    # Professional Wilder's Smoothing (EMA based)
+    avg_gain = gain.ewm(alpha=1/period, min_periods=period).mean()
+    avg_loss = loss.ewm(alpha=1/period, min_periods=period).mean()
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))    
 
 @app.route('/api/market-data')
 @cache.cached(timeout=60, query_string=True) # 3. Cache for 1 minutes (60 seconds)
