@@ -106,7 +106,7 @@ def get_data():
             
             # --- NEW VOLUME LOGIC: Calculate Ratio & Signal ---
             current_vol = float(volume_data.iloc[pos])
-            avg_vol_20 = float(volume_data.iloc[max(0, pos-20):pos+1].mean())
+            avg_vol_20 = float(volume_data.iloc[max(0, pos-20):pos].mean())
             vol_ratio = round(current_vol / avg_vol_20, 2) if avg_vol_20 > 0 else 1.0            
             vol_signal = "NORMAL"
             # --- ENHANCED VOLUME LOGIC ---
